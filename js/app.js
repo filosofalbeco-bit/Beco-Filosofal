@@ -502,9 +502,6 @@ async function confirmarPedido() {
 async function confirmarPedidoMesa(total) {
   const codigo = gerarCodigoPedido();
   const obs = (document.getElementById('obs-input') || {}).value || '';
-  const linhas = Object.values(cart).map(i =>
-    `• ${i.name} x${i.qty} — R$ ${(i.price * i.qty).toFixed(2).replace('.',',')}`
-  ).join('\n');
 
   // Montar objeto do pedido
   const pedido = {
@@ -517,27 +514,12 @@ async function confirmarPedidoMesa(total) {
     ts: Date.now()
   };
 
-  // Salvar no Artifact DB
+  // Salvar no Supabase
   if (dbRef) {
     try {
       await dbRef.collection('mesas').doc(codigo).set(pedido);
     } catch(e) { console.warn('DB save failed', e); }
   }
-
-  // Enviar WhatsApp para a cozinha (SEM PIX)
-  const msg = encodeURIComponent(
-`🍔 *PEDIDO MESA ${mesaAtiva} — Beco FilosoFal Burguer*
-Código: *${codigo}*
-
-*Itens:*
-${linhas}
-
-*Total: R$ ${total.toFixed(2).replace('.',',')}*
-${obs ? '\nObs: ' + obs : ''}
-
-_Consumo no local — pagamento ao encerrar a conta_`
-  );
-  window.open(`https://wa.me/${WPP_NUM}?text=${msg}`, '_blank');
 
   // Limpar carrinho
   Object.keys(cart).forEach(k => delete cart[k]);
