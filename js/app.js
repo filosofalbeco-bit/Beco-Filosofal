@@ -683,7 +683,7 @@ ${linhas}
 Modo: ${modo}${deliveryMode==='entrega' ? `\nCEP: ${cep}` : ''}
 ${obs ? '\nObs: ' + obs : ''}
 
-_Comprovante PIX em anexo_`
+📎 *Anexe aqui a foto do comprovante PIX para confirmarmos seu pedido.*`
   );
   window.open(`https://wa.me/${WPP_NUM}?text=${msg}`, '_blank');
 }
