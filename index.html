@@ -362,14 +362,109 @@
       <span class="cart-title">🛒 Seu Pedido</span>
       <button class="cart-close" onclick="fecharCarrinho()" aria-label="Fechar">✕</button>
     </div>
-    <div class="cart-body" id="cart-body"></div>
-    <div class="cart-footer" id="cart-footer"></div>
+    <div class="cart-body" id="cart-body">
+      <!-- Estado vazio -->
+      <div class="cart-empty" id="cart-empty">
+        <div class="cart-empty-icon">🧙‍♂️</div>
+        <div class="cart-empty-text">"Accio Hambúrguer!" — seu carrinho ainda está vazio.</div>
+      </div>
+
+      <!-- Itens adicionados -->
+      <div id="cart-items"></div>
+
+      <!-- Seção de entrega/retirada/mesa -->
+      <div id="cart-delivery-section" style="display:none;">
+        <div class="cart-section-title">Modalidade</div>
+
+        <div class="delivery-opts" id="delivery-opts-row">
+          <button class="delivery-opt active" id="opt-entrega" onclick="setDelivery('entrega')">🚴 Entrega</button>
+          <button class="delivery-opt" id="opt-retirada" onclick="setDelivery('retirada')">🏃 Retirada</button>
+        </div>
+
+        <!-- Badge de mesa (modo mesa) -->
+        <div id="mesa-info" style="display:none; margin-bottom:1rem;">
+          <span style="font-family:var(--font-heading);font-size:0.8rem;color:var(--gold);">🪄 Mesa <span id="mesa-numero"></span></span>
+        </div>
+
+        <!-- CEP -->
+        <div id="cep-section">
+          <div class="cart-section-title">CEP para entrega</div>
+          <div class="cep-row">
+            <input class="cart-input" id="cep-input" inputmode="numeric" maxlength="9"
+              placeholder="00000-000" oninput="formatarCEP(this)" aria-label="CEP">
+            <button class="btn-cep" onclick="calcularFrete()">Calcular</button>
+          </div>
+          <div id="frete-resultado"></div>
+        </div>
+
+        <!-- Observações -->
+        <div style="margin-top:0.75rem;">
+          <div class="cart-section-title">Observações</div>
+          <textarea class="cart-input cart-obs" id="obs-input"
+            placeholder="Alguma observação? (sem cebola, ponto da carne...)" rows="2"></textarea>
+        </div>
+
+        <!-- Status pedidos da mesa -->
+        <div id="mesa-pedidos-status" style="margin-top:0.75rem;font-size:0.8rem;color:var(--fg-muted);font-family:var(--font-scroll);font-style:italic;"></div>
+      </div>
+    </div>
+
+    <div class="cart-footer" id="cart-footer" style="display:none;">
+      <div class="cart-total-row">
+        <span>Subtotal</span><span id="subtotal-val">R$ 0,00</span>
+      </div>
+      <div class="cart-total-row" id="frete-row">
+        <span>Frete</span><span id="frete-val">—</span>
+      </div>
+      <div class="cart-total-row final">
+        <span>Total</span><span id="total-val">R$ 0,00</span>
+      </div>
+      <button class="btn-pedido" id="btn-confirmar" onclick="confirmarPedido()" disabled>
+        ✨ Confirmar Pedido
+      </button>
+      <button class="btn-pedido" id="btn-encerrar" onclick="encerrarConta()"
+        style="display:none;margin-top:0.5rem;background:linear-gradient(135deg,#1a4a1a,#2d6a2d);">
+        🧾 Encerrar Conta
+      </button>
+    </div>
   </div>
 </div>
 
 <!-- MODAL PIX -->
 <div id="pix-modal" role="dialog" aria-modal="true" aria-label="Pagamento PIX">
-  <div class="pix-box" id="pix-box"></div>
+  <div class="pix-box" id="pix-box">
+    <div class="pix-code-header">✦ Pagamento via PIX ✦</div>
+    <div class="pix-order-num" id="pix-order-num"></div>
+    <div class="pix-subtitle">Escaneie ou copie a chave para pagar</div>
+
+    <div class="pix-qr-box">
+      <canvas id="pix-qr" width="160" height="160"></canvas>
+    </div>
+
+    <div class="pix-key-label">Chave PIX</div>
+    <div class="pix-key-val">
+      <span id="pix-key-display"></span>
+      <button class="copy-btn" onclick="copiarChave()" aria-label="Copiar chave">📋</button>
+    </div>
+    <div class="copy-feedback" id="copy-feedback"></div>
+
+    <div class="pix-total" id="pix-total-val"></div>
+    <div class="pix-total-label">Valor total do pedido</div>
+
+    <div class="pix-steps">
+      <div class="pix-step"><span class="pix-step-num">1</span><span>Abra o app do seu banco</span></div>
+      <div class="pix-step"><span class="pix-step-num">2</span><span>Escaneie o QR ou cole a chave PIX</span></div>
+      <div class="pix-step"><span class="pix-step-num">3</span><span>Confirme o valor e pague</span></div>
+      <div class="pix-step"><span class="pix-step-num">4</span><span>Envie o comprovante pelo WhatsApp</span></div>
+    </div>
+
+    <div class="divider-pix"><span>⚯͛</span></div>
+
+    <button class="btn-wpp" onclick="enviarWhatsApp()">
+      📱 Enviar pedido pelo WhatsApp
+    </button>
+    <button class="btn-cancel" onclick="fecharPix()">Cancelar</button>
+  </div>
 </div>
 
 <!-- PAINEL COZINHA -->
@@ -385,9 +480,29 @@
 <div id="admin-overlay">
   <div class="admin-header">
     <span class="admin-title">🪄 Painel do Garçom</span>
+    <span id="admin-last-update" style="font-size:0.7rem;color:var(--fg-muted);font-family:var(--font-body);"></span>
     <button class="cart-close" onclick="fecharAdmin()" aria-label="Fechar painel">✕</button>
   </div>
-  <div class="admin-body" id="admin-body-inner"></div>
+  <div class="admin-body">
+    <!-- Tela de senha -->
+    <div id="admin-senha-screen">
+      <div class="admin-senha-box">
+        <div class="admin-senha-title">🔐 Acesso Restrito</div>
+        <div class="admin-senha-sub">"Alohomora!" — informe a senha do painel</div>
+        <input class="cart-input" id="admin-senha-input" type="password"
+          placeholder="Senha do garçom" style="width:100%;margin-bottom:0.75rem;"
+          onkeydown="if(event.key==='Enter')verificarSenhaAdmin()">
+        <button class="btn-pedido" onclick="verificarSenhaAdmin()">Entrar</button>
+        <div class="admin-senha-err" id="admin-senha-err"></div>
+      </div>
+    </div>
+
+    <!-- Painel principal -->
+    <div id="admin-painel" style="display:none;">
+      <div class="admin-empty" id="admin-empty">Nenhum pedido ainda. Aguardando travessuras...</div>
+      <div id="admin-body"></div>
+    </div>
+  </div>
 </div>
 
 <!-- ACESSO RÁPIDO (tela de boas-vindas) -->
