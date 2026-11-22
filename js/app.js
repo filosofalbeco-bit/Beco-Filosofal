@@ -898,3 +898,71 @@ async function marcarEntregue(pedidoId, btn) {
     btn.textContent = 'Marcar Entregue';
   }
 }
+
+function fecharAdmin() {
+  document.getElementById('admin-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function fecharCozinha() {
+  document.getElementById('cozinha-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+/* =====================================================
+   CARDÁPIO — Dados e renderização
+   ===================================================== */
+const CARDAPIO = {
+  burgers: [
+    { id: 'bg-sonserina',  name: 'X-Tudo Sonserina',   price: 32.90, desc: 'Blend 180g, queijo defumado, maionese verde, cebola roxa e alface.' },
+    { id: 'bg-fenix',      name: 'Smash Fênix',         price: 28.90, desc: 'Duplo smash 2×90g, queijo americano, molho especial e picles.' },
+    { id: 'bg-grifinoria', name: 'Burguer Grifinória',  price: 30.90, desc: 'Blend 180g, bacon crocante, queijo prato, alface e tomate.' },
+    { id: 'bg-pomo',       name: '🏅 Pomo de Ouro',    price: 36.90, desc: 'O burguer sazonal — especial do mês. Pergunte ao garçom!' },
+  ],
+  acomp: [
+    { id: 'ac-batatas',    name: 'Batatas Wingardium',  price: 14.90, desc: 'Batatas fritas crocantes com tempero da casa.' },
+    { id: 'ac-onion',      name: 'Onion Rings Lumos',   price: 16.90, desc: 'Anéis de cebola empanados com molho de parmesão.' },
+    { id: 'ac-mista',      name: 'Porção Mista',        price: 22.90, desc: 'Batatas + onion rings para compartilhar.' },
+  ],
+  bebidas: [
+    { id: 'be-grif',  name: 'Soda Grifinória 🦁',  price: 10.90, desc: 'Morango com baunilha — coragem em cada gole.' },
+    { id: 'be-son',   name: 'Soda Sonserina 🐍',   price: 10.90, desc: 'Menta com limão — refinamento puro.' },
+    { id: 'be-lufa',  name: 'Soda Lufa-Lufa 🦡',   price: 10.90, desc: 'Maracujá com gengibre — lealdade e sabor.' },
+    { id: 'be-corv',  name: 'Soda Corvinal 🦅',    price: 10.90, desc: 'Mirtilo com lavanda — sabedoria e sofisticação.' },
+    { id: 'be-agua',  name: 'Água Mineral',         price:  5.00, desc: 'Com ou sem gás.' },
+    { id: 'be-suco',  name: 'Suco Natural',         price: 12.90, desc: 'Laranja, limão ou maracujá.' },
+  ],
+  sobremesas: [
+    { id: 'so-brownie', name: 'Brownie Accio',       price: 15.90, desc: 'Brownie de chocolate com sorvete de baunilha.' },
+    { id: 'so-waffle',  name: 'Waffle das Bruxas',   price: 17.90, desc: 'Waffle crocante com nutella e frutas vermelhas.' },
+  ]
+};
+
+function mkItemHTML(item, idx) {
+  return `
+    <div class="scroll-item" data-id="${item.id}" data-name="${item.name}" data-price="${item.price}">
+      <div>
+        <div class="scroll-item-num">${String(idx + 1).padStart(2, '0')}</div>
+        <div class="scroll-item-name">${item.name}</div>
+        <div class="scroll-item-desc">${item.desc}</div>
+      </div>
+      <div class="scroll-item-footer">
+        <div class="scroll-item-price">R$ ${item.price.toFixed(2).replace('.', ',')}</div>
+        <div class="qty-ctrl">
+          <button class="qty-btn" onclick="changeQty(this,-1)" aria-label="Remover">−</button>
+          <span class="qty-num">0</span>
+          <button class="qty-btn" onclick="changeQty(this,1)" aria-label="Adicionar">+</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderizarCardapio() {
+  document.getElementById('items-burgers').innerHTML    = CARDAPIO.burgers.map(mkItemHTML).join('');
+  document.getElementById('items-acomp').innerHTML      = CARDAPIO.acomp.map(mkItemHTML).join('');
+  document.getElementById('items-bebidas').innerHTML    = CARDAPIO.bebidas.map(mkItemHTML).join('');
+  document.getElementById('items-sobremesas').innerHTML = CARDAPIO.sobremesas.map(mkItemHTML).join('');
+}
+
+renderizarCardapio();
