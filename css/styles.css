@@ -34,6 +34,63 @@
 *, *::before, *::after { box-sizing: border-box; }
 
 /* =====================================================
+   BOTÃO STATUS DE PEDIDOS (MESA)
+   ===================================================== */
+#status-btn {
+  position: fixed;
+  bottom: max(80px, calc(env(safe-area-inset-bottom, 0px) + 80px));
+  left: max(20px, env(safe-area-inset-left, 0px));
+  z-index: 300;
+  background: linear-gradient(135deg, #1a4a2a, #2d7a44);
+  border: 1px solid rgba(45,138,64,0.4);
+  border-radius: 50px;
+  padding: 0.75rem 1.25rem;
+  font-family: var(--font-heading); font-size: 0.82rem; font-weight: 700;
+  color: #e0ffe8; cursor: pointer;
+  display: flex; align-items: center; gap: 0.5rem;
+  box-shadow: 0 6px 24px rgba(45,138,64,0.4);
+  transition: all 0.3s ease;
+}
+#status-btn:hover { box-shadow: 0 10px 32px rgba(45,138,64,0.6); transform: translateY(-2px); }
+#status-badge {
+  background: var(--candle); color: var(--ink); border-radius: 50px;
+  padding: 0.1rem 0.5rem; font-size: 0.72rem; font-weight: 700;
+  display: none;
+}
+#status-badge.visible { display: inline-flex; }
+
+/* Painel de status */
+#status-panel {
+  position: fixed; inset: 0; z-index: 500;
+  display: none; align-items: flex-end; justify-content: flex-start;
+}
+#status-panel.open { display: flex; }
+#status-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); }
+#status-drawer {
+  position: relative; z-index: 1;
+  width: min(400px, 100%); height: 100vh;
+  background: var(--navy2); border-right: 1px solid rgba(45,138,64,0.2);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.status-item {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid rgba(201,168,76,0.08);
+}
+.status-item-header {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;
+}
+.status-item-code {
+  font-family: var(--font-heading); font-size: 0.75rem; color: var(--gold-dark);
+}
+.status-pill {
+  font-size: 0.75rem; padding: 0.2rem 0.65rem; border-radius: 50px; font-family: var(--font-heading);
+}
+.status-pill.pendente { background: rgba(232,160,48,0.15); color: var(--candle); }
+.status-pill.entregue { background: rgba(45,138,64,0.2); color: #3daa52; }
+.status-item-itens { font-size: 0.82rem; color: var(--fg); line-height: 1.6; }
+.status-item-meta { font-size: 0.72rem; color: var(--fg-muted); margin-top: 0.25rem; }
+
+/* =====================================================
    CARRINHO FLUTUANTE
    ===================================================== */
 #cart-btn {

@@ -381,6 +381,11 @@ let mesaAtiva = null;
         badge.textContent = 'Mesa ' + mesa;
         navBrand.appendChild(badge);
       }
+      // Mostrar botão de status e preencher número da mesa
+      const statusBtn = document.getElementById('status-btn');
+      if (statusBtn) statusBtn.style.display = 'flex';
+      const statusMesaNum = document.getElementById('status-mesa-num');
+      if (statusMesaNum) statusMesaNum.textContent = mesa;
     }
   } catch(e) {}
 })();
@@ -530,8 +535,11 @@ async function confirmarPedidoMesa(total) {
   // Toast de confirmação
   mostrarToast(`✓ Pedido ${codigo} enviado para a cozinha!`);
 
-  // Atualizar status do botão encerrar
-  setTimeout(atualizarStatusEncerrar, 500);
+  // Atualizar status do botão encerrar e badge
+  setTimeout(() => {
+    atualizarStatusEncerrar();
+    renderizarStatusPainel();
+  }, 500);
 }
 
 function mostrarToast(msg) {
@@ -762,6 +770,9 @@ function criarDbRef(sb) {
     supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     dbRef = criarDbRef(supabase);
 
+    // Se em modo mesa, iniciar polling de status
+    if (mesaAtiva) iniciarPollingStatus();
+
     // Se no painel admin, subscrever a atualizações
     if (painelAdminAtivo) {
       dbRef.collection('mesas').onSnapshot(snap => {
@@ -889,6 +900,76 @@ function fecharAdmin() {
 function fecharCozinha() {
   document.getElementById('cozinha-overlay').classList.remove('open');
   document.body.style.overflow = '';
+}
+
+/* =====================================================
+   PAINEL DE STATUS DE PEDIDOS (MESA)
+   ===================================================== */
+let statusInterval = null;
+
+function abrirStatus() {
+  document.getElementById('status-panel').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  renderizarStatusPainel();
+}
+
+function fecharStatus() {
+  document.getElementById('status-panel').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+async function renderizarStatusPainel() {
+  const body = document.getElementById('status-body');
+  if (!mesaAtiva || !dbRef) {
+    body.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--fg-muted);font-family:var(--font-scroll);font-style:italic;">Conectando ao banco...</div>';
+    return;
+  }
+  try {
+    const snap = await dbRef.collection('mesas').where('mesa','==',mesaAtiva).get();
+    const pedidos = snap.docs.map(d => d.data()).sort((a, b) => a.ts - b.ts);
+
+    if (pedidos.length === 0) {
+      body.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--fg-muted);font-family:var(--font-scroll);font-style:italic;">Nenhum pedido enviado ainda.</div>';
+      atualizarBadgeStatus([]);
+      return;
+    }
+
+    body.innerHTML = pedidos.map(p => `
+      <div class="status-item">
+        <div class="status-item-header">
+          <span class="status-item-code">${p.id} · ${new Date(p.ts).toLocaleTimeString('pt-BR')}</span>
+          <span class="status-pill ${p.status === 'entregue' ? 'entregue' : 'pendente'}">
+            ${p.status === 'entregue' ? '✓ Entregue' : '⏳ Preparando...'}
+          </span>
+        </div>
+        <div class="status-item-itens">${p.itens.map(i => `${i.name} ×${i.qty}`).join(' · ')}</div>
+        <div class="status-item-meta">R$ ${p.total.toFixed(2).replace('.', ',')}${p.obs ? ' · ' + p.obs : ''}</div>
+      </div>
+    `).join('');
+
+    atualizarBadgeStatus(pedidos);
+  } catch(e) { console.warn('Status fetch failed', e); }
+}
+
+function atualizarBadgeStatus(pedidos) {
+  const pendentes = pedidos.filter(p => p.status !== 'entregue').length;
+  const badge = document.getElementById('status-badge');
+  if (!badge) return;
+  if (pendentes > 0) {
+    badge.textContent = pendentes + ' em preparo';
+    badge.classList.add('visible');
+  } else if (pedidos.length > 0) {
+    badge.textContent = '✓ tudo entregue';
+    badge.classList.add('visible');
+  } else {
+    badge.classList.remove('visible');
+  }
+}
+
+function iniciarPollingStatus() {
+  if (!mesaAtiva) return;
+  renderizarStatusPainel();
+  statusInterval = setInterval(renderizarStatusPainel, 5000);
 }
 
 /* =====================================================

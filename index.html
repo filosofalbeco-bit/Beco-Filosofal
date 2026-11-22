@@ -354,6 +354,24 @@
   <span id="conta-badge" style="display:none;"></span>
 </button>
 
+<!-- Botão status de pedidos (mesa) -->
+<button id="status-btn" onclick="abrirStatus()" style="display:none;" aria-label="Ver status dos pedidos">
+  🍳 Meus Pedidos
+  <span id="status-badge"></span>
+</button>
+
+<!-- Painel de status (mesa) -->
+<div id="status-panel" role="dialog" aria-modal="true" aria-label="Status dos pedidos">
+  <div id="status-overlay" onclick="fecharStatus()"></div>
+  <div id="status-drawer">
+    <div class="cart-header">
+      <span class="cart-title">🍳 Seus Pedidos — Mesa <span id="status-mesa-num"></span></span>
+      <button class="cart-close" onclick="fecharStatus()" aria-label="Fechar">✕</button>
+    </div>
+    <div class="cart-body" id="status-body"></div>
+  </div>
+</div>
+
 <!-- PAINEL CARRINHO -->
 <div id="cart-panel" role="dialog" aria-modal="true" aria-label="Carrinho de compras">
   <div id="cart-overlay" onclick="fecharCarrinho()"></div>
