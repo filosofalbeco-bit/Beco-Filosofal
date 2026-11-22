@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="Beco FilosoFal Burguer — Hamburgueria temática Harry Potter em Barbacena, MG. Carnes artesanais, ambiente imersivo e magia em cada mordida.">
+  <meta property="og:title" content="Beco FilosoFal Burguer">
+  <meta property="og:description" content="Hamburgueria temática Harry Potter em Barbacena, MG.">
+  <meta property="og:type" content="website">
+  <title>Beco Filosofal Burguer</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400;600;700&family=IM+Fell+English:ital@0;1&family=Lato:wght@300;400;700&display=swap">
+
+  <!-- Estilos -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+<!-- ELDER WAND CURSOR -->
+<svg id="elder-wand" viewBox="0 0 80 22" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="wg" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#2a1a08"/>
+      <stop offset="20%" stop-color="#4a2e10"/>
+      <stop offset="50%" stop-color="#6b4118"/>
+      <stop offset="80%" stop-color="#4a2e10"/>
+      <stop offset="100%" stop-color="#1a0e04"/>
+    </linearGradient>
+    <linearGradient id="wg2" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#3a2008"/>
+      <stop offset="50%" stop-color="#7a5020"/>
+      <stop offset="100%" stop-color="#2a1608"/>
+    </linearGradient>
+    <filter id="wglow">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <radialGradient id="tip-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#e8c96e" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#c9a84c" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <ellipse cx="4" cy="11" rx="6" ry="6" fill="url(#tip-glow)" opacity="0.7"/>
+  <path d="M74,8 Q70,7 65,7.5 L10,9.5 Q6,10 4,11 Q6,12 10,12.5 L65,14.5 Q70,15 74,14 Z" fill="url(#wg)" filter="url(#wglow)"/>
+  <path d="M20,9.8 L65,8 L65,9 L20,10.8 Z" fill="#1a0e04" opacity="0.4"/>
+  <path d="M20,13.2 L65,15 L65,14 L20,12.2 Z" fill="#1a0e04" opacity="0.4"/>
+  <ellipse cx="30" cy="11" rx="2.5" ry="3.5" fill="#2a1508" opacity="0.7"/>
+  <ellipse cx="30" cy="11" rx="1.5" ry="2.5" fill="#4a2510" opacity="0.5"/>
+  <ellipse cx="45" cy="11" rx="2" ry="3" fill="#2a1508" opacity="0.6"/>
+  <ellipse cx="45" cy="11" rx="1.2" ry="2" fill="#4a2510" opacity="0.4"/>
+  <ellipse cx="58" cy="11" rx="1.5" ry="2.5" fill="#2a1508" opacity="0.5"/>
+  <rect x="68" y="6" width="12" height="10" rx="2" fill="url(#wg2)"/>
+  <rect x="70" y="7.5" width="8" height="7" rx="1" fill="#5a3010" opacity="0.5"/>
+  <line x1="71" y1="6.5" x2="71" y2="15.5" stroke="#1a0e04" stroke-width="0.8" opacity="0.6"/>
+  <line x1="74" y1="6.2" x2="74" y2="15.8" stroke="#1a0e04" stroke-width="0.8" opacity="0.5"/>
+  <line x1="77" y1="6.5" x2="77" y2="15.5" stroke="#1a0e04" stroke-width="0.8" opacity="0.6"/>
+  <circle cx="4" cy="11" r="2.5" fill="#e8c96e" opacity="0.9"/>
+  <circle cx="4" cy="11" r="1.2" fill="#fffbe8"/>
+  <g transform="translate(73.5,8.5)" opacity="0.5">
+    <polygon points="1.5,0 3,3 0,3" fill="none" stroke="#c9a84c" stroke-width="0.4"/>
+    <circle cx="1.5" cy="2" r="0.8" fill="none" stroke="#c9a84c" stroke-width="0.3"/>
+    <line x1="1.5" y1="0" x2="1.5" y2="3" stroke="#c9a84c" stroke-width="0.3"/>
+  </g>
+</svg>
+
+<div id="magic-fx"></div>
+
+<!-- NAV -->
+<nav>
+  <a class="nav-brand" href="#">
+    <span class="nav-snitch">🟡</span>
+    Beco FilosoFal Burguer
+  </a>
+  <ul class="nav-links">
+    <li><a href="#cardapio">Cardápio</a></li>
+    <li><a href="#diferenciais">Diferenciais</a></li>
+    <li><a href="#contato">Contato</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section class="hero" id="inicio">
+  <div class="hero-sky"></div>
+  <canvas id="stars-canvas"></canvas>
+
+  <div class="hero-content">
+    <div class="hero-emblem">
+      <div class="emblem-ring">
+        <div class="emblem-stars-txt">✦ Barbacena · MG ✦</div>
+        <div class="emblem-beco">BECO</div>
+        <div class="emblem-moon">🌙</div>
+        <div class="emblem-filosof">FilosoFal</div>
+        <div class="emblem-candles">
+          <div class="candle">
+            <div class="candle-flame"></div>
+            <div class="candle-body"></div>
+            <div class="candle-base"></div>
+          </div>
+          <div class="candle">
+            <div class="candle-flame" style="animation-delay:0.2s"></div>
+            <div class="candle-body" style="height:30px"></div>
+            <div class="candle-base"></div>
+          </div>
+          <div class="candle">
+            <div class="candle-flame" style="animation-delay:0.4s"></div>
+            <div class="candle-body"></div>
+            <div class="candle-base"></div>
+          </div>
+        </div>
+        <div class="emblem-burguer">Burguer</div>
+        <div class="emblem-snitch">🏅</div>
+      </div>
+    </div>
+
+    <p class="hero-tagline">✦ Hamburgueria Temática ✦ Magia chegou em Barbacena ✦</p>
+    <div class="divider-hp"><span>⚯͛</span></div>
+    <p class="hero-desc">"Juro solenemente que não tenho boas intenções de comer apenas uma vez."</p>
+
+    <div class="cta-group">
+      <a href="#cardapio" class="btn-gold">📜 Ver o Mapa do Cardápio</a>
+      <a href="https://www.instagram.com/becofilosofalburguer" target="_blank" rel="noopener" class="btn-outline">📸 Instagram</a>
+    </div>
+  </div>
+</section>
+
+<!-- DIFERENCIAIS -->
+<section class="features-section reveal" id="diferenciais">
+  <p class="s-label">Por que somos mágicos</p>
+  <h2 class="s-title">As Relíquias do Sabor</h2>
+  <p class="s-desc">Assim como as três Relíquias da Morte, nossos diferenciais são únicos no mundo — e igualmente poderosos.</p>
+
+  <div class="feat-grid">
+    <div class="feat-card">
+      <span class="feat-icon">🔮</span>
+      <h3 class="feat-name">Ambiente Imersivo</h3>
+      <p class="feat-text">Paredes com Daily Prophet, velas flutuantes, Pomo de Ouro e decoração que te transporta direto para Hogwarts.</p>
+    </div>
+    <div class="feat-card">
+      <span class="feat-icon">🥩</span>
+      <h3 class="feat-name">Carnes Alquímicas</h3>
+      <p class="feat-text">Blend especial artesanal, maturado com técnicas tão secretas quanto as receitas do Prof. Slughorn.</p>
+    </div>
+    <div class="feat-card">
+      <span class="feat-icon">🍺</span>
+      <h3 class="feat-name">Sodas das Casas</h3>
+      <p class="feat-text">Grifinória, Sonserina, Lufa-Lufa e Corvinal — cada soda italiana representa uma casa de Hogwarts.</p>
+    </div>
+    <div class="feat-card">
+      <span class="feat-icon">🏅</span>
+      <h3 class="feat-name">O Pomo de Ouro</h3>
+      <p class="feat-text">Aquele burguer especial que você precisa pegar antes que ele fuja. Sempre uma surpresa no cardápio sazonal.</p>
+    </div>
+  </div>
+</section>
+
+<!-- CARDÁPIO — MAPA DO MAROTO -->
+<section id="cardapio" class="reveal">
+  <p class="s-label">Descubra o Segredo</p>
+  <h2 class="s-title">O Mapa do Maroto</h2>
+  <p class="s-desc">Aponte sua varinha e pronuncie o feitiço para revelar o cardápio completo.</p>
+
+  <div class="mapa-trigger-wrap">
+    <button class="mapa-trigger" id="mapa-btn" onclick="revelarMapa()">
+      <svg class="mapa-trigger-wand" viewBox="0 0 120 28" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="mwg" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#2a1a08"/>
+            <stop offset="40%" stop-color="#6b4118"/>
+            <stop offset="100%" stop-color="#1a0e04"/>
+          </linearGradient>
+        </defs>
+        <ellipse cx="6" cy="14" rx="8" ry="8" fill="#e8c96e" opacity="0.3"/>
+        <path d="M110,10 Q105,9.5 98,10 L12,12 Q8,12.5 6,14 Q8,15.5 12,16 L98,18 Q105,18.5 110,18 Z" fill="url(#mwg)"/>
+        <ellipse cx="25" cy="14" rx="2" ry="3.5" fill="#1a0e04" opacity="0.5"/>
+        <ellipse cx="55" cy="14" rx="1.8" ry="3" fill="#1a0e04" opacity="0.4"/>
+        <ellipse cx="82" cy="14" rx="1.5" ry="2.5" fill="#1a0e04" opacity="0.4"/>
+        <rect x="102" y="8" width="18" height="12" rx="2.5" fill="#3a2008"/>
+        <line x1="105" y1="8.5" x2="105" y2="19.5" stroke="#1a0e04" stroke-width="1" opacity="0.5"/>
+        <line x1="109" y1="8" x2="109" y2="20" stroke="#1a0e04" stroke-width="1" opacity="0.4"/>
+        <line x1="113" y1="8.5" x2="113" y2="19.5" stroke="#1a0e04" stroke-width="1" opacity="0.5"/>
+        <circle cx="6" cy="14" r="3" fill="#e8c96e" opacity="0.95"/>
+        <circle cx="6" cy="14" r="1.5" fill="#fffbe8"/>
+        <g transform="translate(109,9.5)" opacity="0.6">
+          <polygon points="2,0 4,4 0,4" fill="none" stroke="#c9a84c" stroke-width="0.5"/>
+          <circle cx="2" cy="2.8" r="1" fill="none" stroke="#c9a84c" stroke-width="0.4"/>
+          <line x1="2" y1="0" x2="2" y2="4" stroke="#c9a84c" stroke-width="0.4"/>
+        </g>
+      </svg>
+      <span class="mapa-spell">✦ "Eu juro solenemente que minha fome não é boa..." ✦</span>
+      <span class="mapa-trigger-label" id="mapa-btn-label">Toque para revelar o cardápio</span>
+    </button>
+  </div>
+
+  <div id="mapa-scroll">
+    <div class="parchment-sheet">
+      <div class="mapa-header">
+        <div class="footprints" id="footprints"></div>
+        <p class="mapa-oath">Juro solenemente que minha fome não é boa</p>
+        <h3 class="mapa-title-scroll">Cardápio do Beco FilosoFal Burguer</h3>
+        <p class="mapa-subtitle">✦ Hamburgueria Temática · Barbacena, MG ✦</p>
+      </div>
+
+      <!-- BURGERS -->
+      <div class="scroll-category">
+        <button class="scroll-cat-btn" aria-expanded="false" aria-controls="cat-burgers">
+          <span class="scroll-cat-left">
+            <span class="scroll-cat-icon" aria-hidden="true">🍔</span>
+            <span class="scroll-cat-name">Burgers</span>
+          </span>
+          <span class="scroll-cat-spell" aria-hidden="true">"Accio Hambúrguer!"</span>
+          <span class="scroll-cat-arrow" aria-hidden="true">▼</span>
+        </button>
+        <div class="scroll-items-panel" id="cat-burgers" role="region" aria-label="Burgers">
+          <div class="scroll-items" id="items-burgers"></div>
+        </div>
+      </div>
+
+      <!-- ACOMPANHAMENTOS -->
+      <div class="scroll-category">
+        <button class="scroll-cat-btn" aria-expanded="false" aria-controls="cat-acomp">
+          <span class="scroll-cat-left">
+            <span class="scroll-cat-icon" aria-hidden="true">🍟</span>
+            <span class="scroll-cat-name">Acompanhamentos</span>
+          </span>
+          <span class="scroll-cat-spell" aria-hidden="true">"Wingardium Leviosa!"</span>
+          <span class="scroll-cat-arrow" aria-hidden="true">▼</span>
+        </button>
+        <div class="scroll-items-panel" id="cat-acomp" role="region" aria-label="Acompanhamentos">
+          <div class="scroll-items" id="items-acomp"></div>
+        </div>
+      </div>
+
+      <!-- BEBIDAS -->
+      <div class="scroll-category">
+        <button class="scroll-cat-btn" aria-expanded="false" aria-controls="cat-bebidas">
+          <span class="scroll-cat-left">
+            <span class="scroll-cat-icon" aria-hidden="true">🍺</span>
+            <span class="scroll-cat-name">Bebidas Mágicas</span>
+          </span>
+          <span class="scroll-cat-spell" aria-hidden="true">"Aguamenti!"</span>
+          <span class="scroll-cat-arrow" aria-hidden="true">▼</span>
+        </button>
+        <div class="scroll-items-panel" id="cat-bebidas" role="region" aria-label="Bebidas">
+          <div class="scroll-items" id="items-bebidas"></div>
+        </div>
+      </div>
+
+      <!-- SOBREMESAS -->
+      <div class="scroll-category">
+        <button class="scroll-cat-btn" aria-expanded="false" aria-controls="cat-sobremesas">
+          <span class="scroll-cat-left">
+            <span class="scroll-cat-icon" aria-hidden="true">🍰</span>
+            <span class="scroll-cat-name">Encantamentos Doces</span>
+          </span>
+          <span class="scroll-cat-spell" aria-hidden="true">"Engorgio!"</span>
+          <span class="scroll-cat-arrow" aria-hidden="true">▼</span>
+        </button>
+        <div class="scroll-items-panel" id="cat-sobremesas" role="region" aria-label="Sobremesas">
+          <div class="scroll-items" id="items-sobremesas"></div>
+        </div>
+      </div>
+
+      <div class="scroll-divider">⚯ · ⚯ · ⚯</div>
+      <div class="mapa-watermark">⚯͛</div>
+    </div>
+  </div>
+</section>
+
+<!-- DEPOIMENTOS -->
+<section class="testi-section reveal" id="depoimentos">
+  <p class="s-label">O que dizem os frequentadores</p>
+  <h2 class="s-title">Vozes do Beco</h2>
+  <p class="s-desc">Nem mesmo a Profecia poderia prever o quanto as pessoas amariam nosso burguer.</p>
+
+  <div class="testi-grid">
+    <div class="testi-card">
+      <div class="testi-stars">★★★★★</div>
+      <p class="testi-text">O X-Tudo Sonserina é melhor que qualquer poção de amor. Voltei três vezes na mesma semana.</p>
+      <div class="testi-author">
+        <div class="testi-avatar">🐍</div>
+        <div>
+          <div class="testi-name">Draco M.</div>
+          <div class="testi-role">Estudante de Hogwarts</div>
+        </div>
+      </div>
+    </div>
+    <div class="testi-card">
+      <div class="testi-stars">★★★★★</div>
+      <p class="testi-text">As batatas Wingardium Leviosa são literalmente vooadoras de tão boas. Ambiente incrível!</p>
+      <div class="testi-author">
+        <div class="testi-avatar">🦁</div>
+        <div>
+          <div class="testi-name">Hermione G.</div>
+          <div class="testi-role">Feiticeira</div>
+        </div>
+      </div>
+    </div>
+    <div class="testi-card">
+      <div class="testi-stars">★★★★★</div>
+      <p class="testi-text">Vim pelo Instagram, fiquei pelo sabor. O Pomo de Ouro do mês foi uma obra de arte gastronômica.</p>
+      <div class="testi-author">
+        <div class="testi-avatar">⚡</div>
+        <div>
+          <div class="testi-name">Harry P.</div>
+          <div class="testi-role">O Menino que Comeu</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA FINAL -->
+<section class="cta-section reveal" id="contato">
+  <p class="s-label">Faça sua reserva mágica</p>
+  <h2 class="s-title">Venha ao Beco</h2>
+  <p class="s-desc">A plataforma 9¾ está esperando por você. Mas no Beco FilosoFal, não precisa de trem — só de fome.</p>
+  <div class="divider-hp"><span>⚡</span></div>
+  <div class="cta-group">
+    <a href="https://wa.me/5531999999999" target="_blank" rel="noopener" class="btn-gold">💬 Falar no WhatsApp</a>
+    <a href="https://www.instagram.com/becofilosofalburguer" target="_blank" rel="noopener" class="btn-outline">📸 Instagram</a>
+  </div>
+  <p style="margin-top:1.5rem; color:var(--fg-muted); font-size:0.85rem; font-family:var(--font-scroll); font-style:italic;">
+    📍 Barbacena, MG · Horários nas redes sociais
+  </p>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="foot-logo">🌙 Beco FilosoFal Burguer</div>
+  <div class="social-row">
+    <a class="soc-btn" href="https://www.instagram.com/becofilosofalburguer" target="_blank" rel="noopener" aria-label="Instagram">📷</a>
+    <a class="soc-btn" href="https://wa.me/5531999999999" target="_blank" rel="noopener" aria-label="WhatsApp">📱</a>
+  </div>
+  <div class="foot-links">
+    <a href="#diferenciais">Diferenciais</a>
+    <a href="#cardapio">Cardápio</a>
+    <a href="#contato">Contato</a>
+  </div>
+  <p class="foot-text">© 2024 Beco FilosoFal Burguer · Barbacena, MG · Travessuras encerradas.</p>
+</footer>
+
+<!-- Carrinho flutuante -->
+<button id="cart-btn" onclick="abrirCarrinho()" aria-label="Abrir carrinho">
+  🛒 <span id="cart-label">Carrinho</span>
+  <span id="cart-count">0</span>
+</button>
+
+<!-- Botão encerrar conta (mesa) -->
+<button id="conta-btn" onclick="abrirCarrinho()" style="display:none;" aria-label="Encerrar conta">
+  🧾 <span id="conta-label">Ver Conta</span>
+  <span id="conta-badge" style="display:none;"></span>
+</button>
+
+<!-- PAINEL CARRINHO -->
+<div id="cart-panel" role="dialog" aria-modal="true" aria-label="Carrinho de compras">
+  <div id="cart-overlay" onclick="fecharCarrinho()"></div>
+  <div id="cart-drawer">
+    <div class="cart-header">
+      <span class="cart-title">🛒 Seu Pedido</span>
+      <button class="cart-close" onclick="fecharCarrinho()" aria-label="Fechar">✕</button>
+    </div>
+    <div class="cart-body" id="cart-body"></div>
+    <div class="cart-footer" id="cart-footer"></div>
+  </div>
+</div>
+
+<!-- MODAL PIX -->
+<div id="pix-modal" role="dialog" aria-modal="true" aria-label="Pagamento PIX">
+  <div class="pix-box" id="pix-box"></div>
+</div>
+
+<!-- PAINEL COZINHA -->
+<div id="cozinha-overlay">
+  <div class="admin-header">
+    <span class="admin-title">🔥 Painel da Cozinha</span>
+    <button class="cart-close" onclick="fecharCozinha()" aria-label="Fechar painel">✕</button>
+  </div>
+  <div class="admin-body" id="cozinha-body"></div>
+</div>
+
+<!-- PAINEL ADMIN/GARÇOM -->
+<div id="admin-overlay">
+  <div class="admin-header">
+    <span class="admin-title">🪄 Painel do Garçom</span>
+    <button class="cart-close" onclick="fecharAdmin()" aria-label="Fechar painel">✕</button>
+  </div>
+  <div class="admin-body" id="admin-body-inner"></div>
+</div>
+
+<!-- ACESSO RÁPIDO (tela de boas-vindas) -->
+<div id="acesso-rapido" style="display:none;">
+  <div class="admin-header">
+    <span class="admin-title">🏰 Acesso Rápido</span>
+  </div>
+  <div class="admin-body" id="acesso-body"></div>
+</div>
+
+<!-- Scripts -->
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
