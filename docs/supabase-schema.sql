@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS mesas (
   itens       JSONB NOT NULL DEFAULT '[]',  -- [{ name, qty, price }]
   total       NUMERIC(10,2) NOT NULL,
   obs         TEXT DEFAULT '',
-  status      TEXT NOT NULL DEFAULT 'pendente',  -- pendente | entregue
+  status      TEXT NOT NULL DEFAULT 'pendente',  -- pendente | preparando | pronto | entregue
   ts          BIGINT NOT NULL            -- timestamp em ms (Date.now())
 );
 
@@ -39,6 +39,33 @@ CREATE POLICY "todos podem ler pedidos"
 CREATE POLICY "garcom pode atualizar status"
   ON mesas FOR UPDATE
   USING (true);
+
+-- =====================================================
+-- Tabela de pagamentos (fechar conta — garçom)
+-- =====================================================
+CREATE TABLE IF NOT EXISTS pagamentos (
+  id          TEXT PRIMARY KEY,
+  mesa        TEXT NOT NULL,
+  total       NUMERIC(10,2),
+  forma       TEXT NOT NULL,          -- pix | dinheiro | cartao
+  responsavel TEXT DEFAULT 'garçom',
+  ts          BIGINT NOT NULL,
+  ts_brasilia TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_pag_mesa ON pagamentos(mesa);
+CREATE INDEX IF NOT EXISTS idx_pag_ts   ON pagamentos(ts DESC);
+
+ALTER TABLE pagamentos ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "garcom pode inserir pagamentos"
+  ON pagamentos FOR INSERT WITH CHECK (true);
+CREATE POLICY "garcom pode ler pagamentos"
+  ON pagamentos FOR SELECT USING (true);
+
+-- Execute também no SQL Editor:
+GRANT SELECT, INSERT ON public.pagamentos TO anon;
+GRANT SELECT, INSERT ON public.pagamentos TO authenticated;
 
 -- =====================================================
 -- NOTAS DE SEGURANÇA

@@ -829,8 +829,11 @@ function criarDbRef(sb) {
 
     // Painel garçom — polling a cada 5s
     if (painelGarcomAtivo) {
-      renderizarGarcom();
-      setInterval(renderizarGarcom, 5000);
+      renderizarMapaMesas();
+      setInterval(() => {
+        if (garcomAbaAtiva === 'mesas')   renderizarMapaMesas();
+        else                              renderizarGarcom();
+      }, 5000);
     }
 
     // Se em modo mesa, subscrever para atualizar botão encerrar
@@ -919,19 +922,21 @@ function renderizarPainelAdmin(pedidos) {
 
   bodyEl.innerHTML = '';
   Object.entries(porMesa).sort((a,b) => {
-    // Mesas com pedido 'pronto' primeiro, depois por número
     const aPronto = a[1].some(p => p.status === 'pronto');
     const bPronto = b[1].some(p => p.status === 'pronto');
     if (aPronto !== bPronto) return aPronto ? -1 : 1;
     return a[0].localeCompare(b[0], undefined, {numeric:true});
   }).forEach(([mesaNum, peds]) => {
-    const pendentes = peds.filter(p => p.status === 'pendente').length;
-    const prontos   = peds.filter(p => p.status === 'pronto').length;
+    const prontos    = peds.filter(p => p.status === 'pronto').length;
+    const preparando = peds.filter(p => p.status === 'preparando').length;
+    const pendentes  = peds.filter(p => p.status === 'pendente').length;
     const statusTxt = prontos > 0
       ? `🔔 ${prontos} pronto${prontos>1?'s':''} p/ entregar`
-      : pendentes > 0
-        ? `⏳ ${pendentes} em preparo`
-        : '✓ Todos entregues';
+      : preparando > 0
+        ? `🔥 ${preparando} em preparação`
+        : pendentes > 0
+          ? `⏳ ${pendentes} aguardando`
+          : '✓ Todos entregues';
     const mesaLabel = isMesa(mesaNum)
       ? `🪄 Mesa ${mesaNum}`
       : mesaNum === 'ENTREGA' ? '🚴 Entrega' : '🏃 Retirada';
@@ -953,8 +958,10 @@ function renderizarPainelAdmin(pedidos) {
           ${p.status === 'entregue'
             ? `<button class="btn-entregar entregue" disabled>✓ Entregue</button>`
             : p.status === 'pronto'
-              ? `<button class="btn-entregar" onclick="marcarEntregue('${p.id}', this)">✓ Entregar</button>`
-              : `<button class="btn-pronto" onclick="marcarProntoAdmin('${p.id}', this)">🔥 Pronto</button>`
+              ? `<button class="btn-entregar" onclick="marcarEntregue('${p.id}', this)">🚚 Entregar</button>`
+              : p.status === 'preparando'
+                ? `<button class="btn-pronto" onclick="marcarProntoAdminStep2('${p.id}', this)">✓ Concluído</button>`
+                : `<button class="btn-iniciar" onclick="marcarProntoAdmin('${p.id}', this)">▶ Iniciar</button>`
           }
         </div>
       `).join('')}
@@ -989,27 +996,37 @@ function fecharGarcom() {
 }
 
 // --- PAINEL GARÇOM ---
-async function renderizarGarcom() {
-  const body    = document.getElementById('garcom-body');
-  const emptyEl = document.getElementById('garcom-empty');
+let garcomAbaAtiva = 'mesas';
+
+function mudarAbaGarcom(aba) {
+  garcomAbaAtiva = aba;
+  document.getElementById('garcom-aba-mesas').style.display   = aba === 'mesas'   ? '' : 'none';
+  document.getElementById('garcom-aba-pedidos').style.display = aba === 'pedidos' ? '' : 'none';
+  document.getElementById('garcom-tab-mesas').classList.toggle('active',   aba === 'mesas');
+  document.getElementById('garcom-tab-pedidos').classList.toggle('active', aba === 'pedidos');
+  if (aba === 'mesas')   renderizarMapaMesas();
+  if (aba === 'pedidos') renderizarGarcom();
+}
+
+async function renderizarMapaMesas() {
+  const body = document.getElementById('garcom-mesas-body');
   if (!body) return;
   if (!dbRef) {
     body.innerHTML = '<div class="admin-empty">⏳ Conectando ao banco...</div>';
-    setTimeout(renderizarGarcom, 2000);
+    setTimeout(renderizarMapaMesas, 2000);
     return;
   }
   try {
+    const startOfDay = new Date(); startOfDay.setHours(0,0,0,0);
     const { data } = await supabase.from('mesas').select('*')
-      .in('status', ['pendente', 'pronto'])
+      .gte('ts', startOfDay.getTime())
       .order('ts', { ascending: true });
     const pedidos = data || [];
 
     if (pedidos.length === 0) {
-      emptyEl.style.display = 'block';
-      body.innerHTML = '';
+      body.innerHTML = '<div class="admin-empty">Nenhuma mesa ativa hoje.</div>';
       return;
     }
-    emptyEl.style.display = 'none';
 
     const porMesa = {};
     pedidos.forEach(p => {
@@ -1018,37 +1035,79 @@ async function renderizarGarcom() {
     });
 
     const isMesaNum = (m) => !isNaN(parseInt(m));
-    body.innerHTML = Object.entries(porMesa)
-      .sort((a, b) => {
+    const mesaLabel = (m) => isMesaNum(m) ? `Mesa ${m}` : m === 'ENTREGA' ? 'Entrega' : 'Retirada';
+    const mesaIcon  = (m) => isMesaNum(m) ? '🪄' : m === 'ENTREGA' ? '🚴' : '🏃';
+
+    const cards = Object.entries(porMesa)
+      .sort((a,b) => {
         const aPronto = a[1].some(p => p.status === 'pronto');
         const bPronto = b[1].some(p => p.status === 'pronto');
         if (aPronto !== bPronto) return aPronto ? -1 : 1;
         return a[0].localeCompare(b[0], undefined, {numeric:true});
       })
       .map(([mesa, peds]) => {
-        const temPronto = peds.some(p => p.status === 'pronto');
-        const mesaLabel = isMesaNum(mesa) ? `🪄 Mesa ${mesa}` : mesa === 'ENTREGA' ? '🚴 Entrega' : '🏃 Retirada';
+        const total = peds.reduce((s, p) => s + (p.total||0), 0);
+        const ativas = peds.filter(p => p.status !== 'entregue');
+        const temPronto = ativas.some(p => p.status === 'pronto');
+        const temPrep   = ativas.some(p => ['preparando','pendente'].includes(p.status));
+        const statusTxt = ativas.length === 0
+          ? '✓ Conta a fechar'
+          : temPronto
+            ? '🔔 Pronto p/ entregar'
+            : temPrep
+              ? '🔥 Em preparo'
+              : '';
+        const cls = temPronto ? 'mc-pronto' : temPrep ? 'mc-preparo' : '';
         return `
-          <div class="admin-mesa-block ${temPronto ? 'mesa-pronta' : ''}">
-            <div class="admin-mesa-header">
-              <span class="admin-mesa-num">${mesaLabel}</span>
-              <span class="admin-mesa-status">${temPronto ? '🔔 Pronto para entregar!' : '⏳ Em preparo'}</span>
-            </div>
-            ${peds.sort((a, b) => a.ts - b.ts).map(p => `
-              <div class="admin-pedido">
-                <div class="admin-pedido-info">
-                  <div class="admin-pedido-id">${p.id} · ${new Date(p.ts).toLocaleTimeString('pt-BR')}</div>
-                  <div class="admin-pedido-items">${p.itens.map(i => `<strong>${i.qty}×</strong> ${i.name}`).join(' &nbsp;·&nbsp; ')}</div>
-                  ${p.obs ? `<div class="admin-pedido-time" style="color:var(--candle);">📝 ${p.obs}</div>` : ''}
-                </div>
-                ${p.status === 'pronto'
-                  ? `<button class="btn-entregar" onclick="marcarEntregueGarcom('${p.id}', this)">✓ Entregar</button>`
-                  : `<span style="font-size:0.72rem;color:var(--fg-muted);white-space:nowrap;">⏳ Em preparo</span>`
-                }
-              </div>
-            `).join('')}
+          <div class="mesa-card ${cls}">
+            <div class="mesa-card-num">${mesaIcon(mesa)} ${mesaLabel(mesa)}</div>
+            <div class="mesa-card-total">R$ ${total.toFixed(2).replace('.',',')}</div>
+            <div class="mesa-card-status">${statusTxt}</div>
+            <button class="btn-fechar-conta" onclick="abrirFecharConta('${mesa}')">💳 Fechar conta</button>
           </div>`;
-      }).join('');
+      });
+
+    body.innerHTML = `<div class="mesas-grid">${cards.join('')}</div>`;
+  } catch(e) {
+    body.innerHTML = '<div class="admin-empty">Erro ao carregar mesas.</div>';
+    console.warn('MapaMesas fetch failed', e);
+  }
+}
+
+async function renderizarGarcom() {
+  const body = document.getElementById('garcom-body');
+  if (!body) return;
+  if (!dbRef) {
+    body.innerHTML = '<div class="admin-empty">⏳ Conectando ao banco...</div>';
+    setTimeout(renderizarGarcom, 2000);
+    return;
+  }
+  try {
+    const { data } = await supabase.from('mesas').select('*')
+      .in('status', ['pendente', 'preparando', 'pronto'])
+      .order('ts', { ascending: true });
+    const pedidos = data || [];
+
+    const prontos   = pedidos.filter(p => p.status === 'pronto');
+    const emPreparo = pedidos.filter(p => p.status === 'pendente' || p.status === 'preparando');
+
+    body.innerHTML = `
+      <div class="kanban-board">
+        <div class="kanban-col kanban-col-entregar">
+          <div class="kanban-col-header">🔔 A Entregar <span class="kh-count">${prontos.length}</span></div>
+          <div class="kanban-col-body">
+            ${prontos.length === 0 ? '<div class="kanban-empty">Nenhum</div>'
+              : prontos.map(p => mkKanbanCard(p, `<button class="btn-kanban btn-entregar-g" onclick="marcarEntregueGarcom('${p.id}', this)">✓ Entregar</button>`)).join('')}
+          </div>
+        </div>
+        <div class="kanban-col kanban-col-preparo">
+          <div class="kanban-col-header">⏳ Em Preparo <span class="kh-count">${emPreparo.length}</span></div>
+          <div class="kanban-col-body">
+            ${emPreparo.length === 0 ? '<div class="kanban-empty">Nenhum</div>'
+              : emPreparo.map(p => mkKanbanCard(p, `<div class="kanban-card-info">${p.status === 'preparando' ? '🔥 Preparando' : '⏳ Aguardando cozinha'}</div>`)).join('')}
+          </div>
+        </div>
+      </div>`;
   } catch(e) {
     body.innerHTML = '<div class="admin-empty">Erro ao carregar pedidos.</div>';
     console.warn('Garcom fetch failed', e);
@@ -1056,22 +1115,158 @@ async function renderizarGarcom() {
 }
 
 async function marcarEntregueGarcom(pedidoId, btn) {
-  btn.disabled = true;
-  btn.textContent = '...';
+  btn.disabled = true; btn.textContent = '...';
   try {
     const { error } = await supabase.from('mesas').update({ status: 'entregue' }).eq('id', pedidoId);
     if (error) throw error;
     renderizarGarcom();
+    renderizarMapaMesas();
   } catch(e) {
     console.warn('Entregar failed', e);
-    btn.disabled = false;
-    btn.textContent = '✓ Entregar';
+    btn.disabled = false; btn.textContent = '✓ Entregar';
   }
+}
+
+// --- FECHAR CONTA / PAGAMENTO ---
+let _pagMesa = null, _pagForma = null, _pagTotal = 0;
+
+async function abrirFecharConta(mesa) {
+  _pagMesa = mesa; _pagForma = null;
+  const isMesaNum = (m) => !isNaN(parseInt(m));
+  const mesaLabel = isMesaNum(mesa) ? `Mesa ${mesa}` : mesa === 'ENTREGA' ? 'Entrega' : 'Retirada';
+
+  const startOfDay = new Date(); startOfDay.setHours(0,0,0,0);
+  const { data } = await supabase.from('mesas').select('*')
+    .eq('mesa', mesa).gte('ts', startOfDay.getTime()).order('ts', {ascending:true});
+  const pedidos = data || [];
+
+  const total = pedidos.reduce((s, p) => s + (p.total||0), 0);
+  _pagTotal = total;
+
+  const allItens = {};
+  pedidos.forEach(p => (p.itens||[]).forEach(i => {
+    if (!allItens[i.name]) allItens[i.name] = 0;
+    allItens[i.name] += i.qty;
+  }));
+
+  document.getElementById('pag-mesa-label').textContent = mesaLabel;
+  document.getElementById('pag-itens').innerHTML = Object.entries(allItens)
+    .map(([name, qty]) => `${qty}× ${name}`).join('<br>');
+  document.getElementById('pag-total-val').textContent = `R$ ${total.toFixed(2).replace('.',',')}`;
+  document.getElementById('btn-confirmar-pag').disabled = true;
+  document.getElementById('btn-confirmar-pag').style.opacity = '0.5';
+  document.getElementById('pag-pix-info').style.display = 'none';
+  document.querySelectorAll('.btn-forma').forEach(b => b.classList.remove('selected'));
+
+  if (window.PIX_CHAVE) {
+    document.getElementById('pag-pix-chave').textContent = window.PIX_CHAVE;
+  }
+
+  const modal = document.getElementById('pag-modal');
+  modal.style.display = 'flex';
+}
+
+function selecionarFormaPag(forma) {
+  _pagForma = forma;
+  document.querySelectorAll('.btn-forma').forEach(b => b.classList.remove('selected'));
+  const ids = {pix:'pag-btn-pix', dinheiro:'pag-btn-dinheiro', cartao:'pag-btn-cartao'};
+  if (ids[forma]) document.getElementById(ids[forma]).classList.add('selected');
+  document.getElementById('pag-pix-info').style.display = forma === 'pix' ? 'block' : 'none';
+  const btn = document.getElementById('btn-confirmar-pag');
+  btn.disabled = false; btn.style.opacity = '1';
+}
+
+function copiarPixChave() {
+  const chave = document.getElementById('pag-pix-chave').textContent;
+  navigator.clipboard.writeText(chave).then(() => mostrarToast('✓ Chave PIX copiada!'));
+}
+
+async function confirmarPagamentoGarcom() {
+  if (!_pagMesa || !_pagForma) return;
+  const btn = document.getElementById('btn-confirmar-pag');
+  btn.disabled = true; btn.textContent = '...';
+
+  try {
+    const agora = new Date();
+    const tsBrasilia = agora.toLocaleString('pt-BR', {timeZone:'America/Sao_Paulo'});
+    const ts = agora.getTime();
+
+    // Registrar pagamento (requer tabela pagamentos no Supabase)
+    if (supabase) {
+      await supabase.from('pagamentos').insert({
+        id: 'pag-' + Math.random().toString(36).substring(2,10),
+        mesa: _pagMesa,
+        total: _pagTotal,
+        forma: _pagForma,
+        responsavel: 'garçom',
+        ts,
+        ts_brasilia: tsBrasilia
+      });
+    }
+
+    // Marcar todos os pedidos ativos da mesa como entregue
+    await supabase.from('mesas').update({ status: 'entregue' })
+      .eq('mesa', _pagMesa)
+      .in('status', ['pendente', 'preparando', 'pronto']);
+
+    fecharModalPag();
+    mostrarToast('✓ Pagamento registrado!');
+    renderizarMapaMesas();
+    renderizarGarcom();
+  } catch(e) {
+    console.warn('Pagamento failed', e);
+    btn.disabled = false;
+    btn.textContent = '✓ Confirmar Pagamento';
+    mostrarToast('❌ Erro ao registrar pagamento: ' + (e?.message || 'tente novamente'));
+  }
+}
+
+function fecharModalPag() {
+  document.getElementById('pag-modal').style.display = 'none';
+  _pagMesa = null; _pagForma = null; _pagTotal = 0;
+}
+
+// --- KANBAN HELPERS ---
+function mkKanbanCard(p, btnHtml) {
+  const isMesaNum = (m) => !isNaN(parseInt(m));
+  const mesaLabel = isMesaNum(p.mesa) ? `Mesa ${p.mesa}` : p.mesa === 'ENTREGA' ? 'Entrega' : 'Retirada';
+  return `
+    <div class="kanban-card">
+      <div class="kanban-card-id">#${p.id} · ${new Date(p.ts).toLocaleTimeString('pt-BR')}</div>
+      <div class="kanban-card-mesa">📍 ${mesaLabel}</div>
+      <div class="kanban-card-items">${p.itens.map(i => `${i.qty}× ${i.name}`).join('<br>')}</div>
+      ${p.obs ? `<div class="kanban-card-obs">📝 ${p.obs}</div>` : ''}
+      ${btnHtml}
+    </div>`;
+}
+
+function mkKanbanBoard(pendentes, preparando, prontos, cbPend, cbPrep, cbPron) {
+  return `
+    <div class="kanban-board">
+      <div class="kanban-col kanban-col-pendente">
+        <div class="kanban-col-header">⏳ Pendente <span class="kh-count">${pendentes.length}</span></div>
+        <div class="kanban-col-body">
+          ${pendentes.length === 0 ? '<div class="kanban-empty">Nenhum</div>' : pendentes.map(p => mkKanbanCard(p, cbPend(p))).join('')}
+        </div>
+      </div>
+      <div class="kanban-col kanban-col-preparando">
+        <div class="kanban-col-header">🔥 Em Preparação <span class="kh-count">${preparando.length}</span></div>
+        <div class="kanban-col-body">
+          ${preparando.length === 0 ? '<div class="kanban-empty">Nenhum</div>' : preparando.map(p => mkKanbanCard(p, cbPrep(p))).join('')}
+        </div>
+      </div>
+      <div class="kanban-col kanban-col-pronto">
+        <div class="kanban-col-header">✅ Concluído <span class="kh-count">${prontos.length}</span></div>
+        <div class="kanban-col-body">
+          ${prontos.length === 0 ? '<div class="kanban-empty">Nenhum</div>' : prontos.map(p => mkKanbanCard(p, cbPron(p))).join('')}
+        </div>
+      </div>
+    </div>`;
 }
 
 // --- COZINHA STANDALONE ---
 async function renderizarCozinhaStandalone() {
-  const body    = document.getElementById('cozinha-body');
+  const body = document.getElementById('cozinha-body');
   if (!body) return;
   if (!dbRef) {
     body.innerHTML = '<div class="admin-empty">⏳ Conectando ao banco...</div>';
@@ -1079,59 +1274,53 @@ async function renderizarCozinhaStandalone() {
     return;
   }
   try {
-    const { data } = await supabase.from('mesas').select('*').eq('status', 'pendente').order('ts', { ascending: true });
+    const { data } = await supabase.from('mesas').select('*')
+      .in('status', ['pendente', 'preparando', 'pronto'])
+      .order('ts', { ascending: true });
     const pedidos = data || [];
+    const pendentes  = pedidos.filter(p => p.status === 'pendente');
+    const preparando = pedidos.filter(p => p.status === 'preparando');
+    const prontos    = pedidos.filter(p => p.status === 'pronto');
 
-    if (pedidos.length === 0) {
-      body.innerHTML = '<div class="admin-empty">✓ Nenhum pedido pendente no momento.</div>';
-      return;
-    }
-
-    const porMesa = {};
-    pedidos.forEach(p => { if (!porMesa[p.mesa]) porMesa[p.mesa] = []; porMesa[p.mesa].push(p); });
-
-    const isMesaNum = (m) => !isNaN(parseInt(m));
-    body.innerHTML = Object.entries(porMesa)
-      .sort((a, b) => a[0].localeCompare(b[0], undefined, {numeric:true}))
-      .map(([mesa, peds]) => {
-        const mesaLabel = isMesaNum(mesa) ? `🔥 Mesa ${mesa}` : mesa === 'ENTREGA' ? '🚴 Entrega' : '🏃 Retirada';
-        return `
-          <div class="admin-mesa-block">
-            <div class="admin-mesa-header">
-              <span class="admin-mesa-num">${mesaLabel}</span>
-              <span class="admin-mesa-status">⏳ ${peds.length} pedido${peds.length > 1 ? 's' : ''}</span>
-            </div>
-            ${peds.sort((a, b) => a.ts - b.ts).map(p => `
-              <div class="admin-pedido" id="coz-std-${p.id}">
-                <div class="admin-pedido-info">
-                  <div class="admin-pedido-id">${p.id} · ${new Date(p.ts).toLocaleTimeString('pt-BR')}</div>
-                  <div class="admin-pedido-items">${p.itens.map(i => `<strong>${i.qty}×</strong> ${i.name}`).join(' &nbsp;·&nbsp; ')}</div>
-                  ${p.obs ? `<div class="admin-pedido-time" style="color:var(--candle);">📝 ${p.obs}</div>` : ''}
-                </div>
-                <button class="btn-entregar" onclick="marcarProntoStandalone('${p.id}', this)">✓ Pronto</button>
-              </div>
-            `).join('')}
-          </div>`;
-      }).join('');
+    body.innerHTML = mkKanbanBoard(
+      pendentes, preparando, prontos,
+      p => `<button class="btn-kanban btn-iniciar" onclick="marcarPreparando('${p.id}', this)">▶ Iniciar preparo</button>`,
+      p => `<button class="btn-kanban btn-pronto-k" onclick="marcarProntoKitchen('${p.id}', this)">✓ Concluído</button>`,
+      () => `<div class="kanban-card-info">Aguardando garçom</div>`
+    );
   } catch(e) {
     body.innerHTML = '<div class="admin-empty">Erro ao carregar pedidos.</div>';
     console.warn('Cozinha standalone fetch failed', e);
   }
 }
 
-async function marcarProntoStandalone(pedidoId, btn) {
+async function marcarPreparando(pedidoId, btn) {
+  btn.disabled = true;
+  btn.textContent = '...';
+  try {
+    const { error } = await supabase.from('mesas').update({ status: 'preparando' }).eq('id', pedidoId);
+    if (error) throw error;
+    renderizarCozinhaStandalone();
+    renderizarCozinha();
+  } catch(e) {
+    console.warn('marcarPreparando failed', e);
+    btn.disabled = false;
+    btn.textContent = '▶ Iniciar preparo';
+  }
+}
+
+async function marcarProntoKitchen(pedidoId, btn) {
   btn.disabled = true;
   btn.textContent = '...';
   try {
     const { error } = await supabase.from('mesas').update({ status: 'pronto' }).eq('id', pedidoId);
     if (error) throw error;
-    const row = document.getElementById(`coz-std-${pedidoId}`);
-    if (row) row.remove();
     renderizarCozinhaStandalone();
+    renderizarCozinha();
   } catch(e) {
-    console.warn('ProntoStandalone failed', e);
+    console.warn('marcarProntoKitchen failed', e);
     btn.disabled = false;
-    btn.textContent = '✓ Pronto';
+    btn.textContent = '✓ Concluído';
   }
 }
 
@@ -1182,87 +1371,67 @@ function mudarAbaAdmin(aba) {
 }
 
 async function renderizarCozinha() {
-  const body     = document.getElementById('cozinha-body-admin');
-  const emptyEl  = document.getElementById('cozinha-empty');
+  const body = document.getElementById('cozinha-body-admin');
+  if (!body) return;
   if (!dbRef) {
     body.innerHTML = '<div class="admin-empty">⏳ Conectando ao banco...</div>';
     setTimeout(renderizarCozinha, 2000);
     return;
   }
   try {
-    const { data } = await supabase.from('mesas').select('*').eq('status', 'pendente').order('ts', { ascending: true });
+    const { data } = await supabase.from('mesas').select('*')
+      .in('status', ['pendente', 'preparando', 'pronto'])
+      .order('ts', { ascending: true });
     const pedidos = data || [];
-
+    const emptyEl = document.getElementById('cozinha-empty');
     if (pedidos.length === 0) {
-      emptyEl.style.display = 'block';
+      if (emptyEl) emptyEl.style.display = 'block';
       body.innerHTML = '';
       return;
     }
-    emptyEl.style.display = 'none';
-
-    // Agrupar por mesa
-    const porMesa = {};
-    pedidos.forEach(p => {
-      if (!porMesa[p.mesa]) porMesa[p.mesa] = [];
-      porMesa[p.mesa].push(p);
-    });
-
-    body.innerHTML = Object.entries(porMesa)
-      .sort((a, b) => Number(a[0]) - Number(b[0]))
-      .map(([mesa, peds]) => `
-        <div class="admin-mesa-block">
-          <div class="admin-mesa-header">
-            <span class="admin-mesa-num">🔥 Mesa ${mesa}</span>
-            <span class="admin-mesa-status">⏳ ${peds.length} pedido${peds.length > 1 ? 's' : ''} pendente${peds.length > 1 ? 's' : ''}</span>
-          </div>
-          ${peds.sort((a, b) => a.ts - b.ts).map(p => `
-            <div class="admin-pedido" id="coz-ped-${p.id}">
-              <div class="admin-pedido-info">
-                <div class="admin-pedido-id">${p.id} · ${new Date(p.ts).toLocaleTimeString('pt-BR')}</div>
-                <div class="admin-pedido-items">${p.itens.map(i => `<strong>${i.qty}×</strong> ${i.name}`).join(' &nbsp;·&nbsp; ')}</div>
-                ${p.obs ? `<div class="admin-pedido-time" style="color:var(--candle);">📝 ${p.obs}</div>` : ''}
-              </div>
-              <button class="btn-entregar" onclick="marcarPronto('${p.id}', this)">✓ Pronto</button>
-            </div>
-          `).join('')}
-        </div>
-      `).join('');
+    if (emptyEl) emptyEl.style.display = 'none';
+    const pendentes  = pedidos.filter(p => p.status === 'pendente');
+    const preparando = pedidos.filter(p => p.status === 'preparando');
+    const prontos    = pedidos.filter(p => p.status === 'pronto');
+    body.innerHTML = mkKanbanBoard(
+      pendentes, preparando, prontos,
+      p => `<button class="btn-kanban btn-iniciar" onclick="marcarPreparando('${p.id}', this)">▶ Iniciar preparo</button>`,
+      p => `<button class="btn-kanban btn-pronto-k" onclick="marcarProntoKitchen('${p.id}', this)">✓ Concluído</button>`,
+      () => `<div class="kanban-card-info">Aguardando garçom</div>`
+    );
   } catch(e) {
     body.innerHTML = '<div class="admin-empty">Erro ao carregar pedidos.</div>';
     console.warn('Cozinha fetch failed', e);
   }
 }
 
-async function marcarPronto(pedidoId, btn) {
-  btn.disabled = true;
-  btn.textContent = '...';
+async function marcarProntoAdmin(pedidoId, btn) {
+  btn.disabled = true; btn.textContent = '...';
   try {
-    const { error } = await supabase.from('mesas').update({ status: 'pronto' }).eq('id', pedidoId);
+    const { error } = await supabase.from('mesas').update({ status: 'preparando' }).eq('id', pedidoId);
     if (error) throw error;
-    const row = document.getElementById(`coz-ped-${pedidoId}`);
-    if (row) row.remove();
-    renderizarCozinha();
-  } catch(e) {
-    console.warn('Pronto failed', e);
+    btn.className = 'btn-pronto';
+    btn.textContent = '✓ Concluído';
     btn.disabled = false;
-    btn.textContent = '✓ Pronto';
+    btn.onclick = function() { marcarProntoAdminStep2(pedidoId, this); };
+  } catch(e) {
+    console.warn('ProntoAdmin failed', e);
+    btn.disabled = false; btn.textContent = '▶ Iniciar';
   }
 }
 
-async function marcarProntoAdmin(pedidoId, btn) {
-  btn.disabled = true;
-  btn.textContent = '...';
+async function marcarProntoAdminStep2(pedidoId, btn) {
+  btn.disabled = true; btn.textContent = '...';
   try {
     const { error } = await supabase.from('mesas').update({ status: 'pronto' }).eq('id', pedidoId);
     if (error) throw error;
     btn.className = 'btn-entregar';
-    btn.textContent = '✓ Entregar';
+    btn.textContent = '🚚 Entregar';
     btn.disabled = false;
     btn.onclick = function() { marcarEntregue(pedidoId, this); };
   } catch(e) {
-    console.warn('ProntoAdmin failed', e);
-    btn.disabled = false;
-    btn.textContent = '🔥 Pronto';
+    console.warn('ProntoAdminStep2 failed', e);
+    btn.disabled = false; btn.textContent = '✓ Concluído';
   }
 }
 
@@ -1402,18 +1571,20 @@ async function renderizarStatusPainel() {
       return;
     }
 
-    body.innerHTML = pedidos.map(p => `
+    body.innerHTML = pedidos.map(p => {
+      const isPrep = p.status === 'pendente' || p.status === 'preparando';
+      return `
       <div class="status-item">
         <div class="status-item-header">
           <span class="status-item-code">${p.id} · ${new Date(p.ts).toLocaleTimeString('pt-BR')}</span>
           <span class="status-pill ${p.status === 'entregue' ? 'entregue' : p.status === 'pronto' ? 'pronto' : 'pendente'}">
-            ${p.status === 'entregue' ? '✓ Entregue' : p.status === 'pronto' ? '🔔 Pronto! Aguard. entrega' : '⏳ Preparando...'}
+            ${p.status === 'entregue' ? '✓ Entregue' : p.status === 'pronto' ? '🔔 Pronto! Aguard. entrega' : '⏳ Em preparação...'}
           </span>
         </div>
         <div class="status-item-itens">${p.itens.map(i => `${i.name} ×${i.qty}`).join(' · ')}</div>
         <div class="status-item-meta">R$ ${p.total.toFixed(2).replace('.', ',')}${p.obs ? ' · ' + p.obs : ''}</div>
-      </div>
-    `).join('');
+      </div>`;
+    }).join('');
 
     atualizarBadgeStatus(pedidos);
   } catch(e) {
@@ -1423,8 +1594,8 @@ async function renderizarStatusPainel() {
 }
 
 function atualizarBadgeStatus(pedidos) {
-  const prontos    = pedidos.filter(p => p.status === 'pronto').length;
-  const emPreparo  = pedidos.filter(p => p.status === 'pendente').length;
+  const prontos   = pedidos.filter(p => p.status === 'pronto').length;
+  const emPreparo = pedidos.filter(p => p.status === 'pendente' || p.status === 'preparando').length;
   const badge = document.getElementById('status-badge');
   if (!badge) return;
   if (prontos > 0) {

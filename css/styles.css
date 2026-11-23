@@ -359,6 +359,16 @@
   transition: all 0.2s;
 }
 .btn-pronto:hover { background: linear-gradient(135deg, #c07028, #e08030); }
+/* Botão "Iniciar" no painel de pedidos (mesmas dimensões do btn-pronto) */
+.admin-pedido .btn-iniciar {
+  background: rgba(232,160,48,0.18);
+  border: 1px solid rgba(232,160,48,0.3);
+  border-radius: var(--radius); padding: 0.5rem 1rem;
+  font-family: var(--font-heading); font-size: 0.72rem;
+  color: var(--candle); cursor: pointer; white-space: nowrap; flex-shrink: 0;
+  transition: all 0.2s;
+}
+.admin-pedido .btn-iniciar:hover { background: rgba(232,160,48,0.3); }
 .admin-empty { padding: 3rem; text-align: center; color: var(--fg-muted); font-family: var(--font-scroll); font-style: italic; }
 .mesa-pronta { border-color: rgba(45,138,64,0.4) !important; }
 .mesa-pronta .admin-mesa-header { background: rgba(45,138,64,0.08) !important; }
@@ -1179,6 +1189,107 @@ footer {
   overflow-y: auto;
 }
 #cozinha-overlay.open, #garcom-overlay.open { display: flex; }
+
+/* =====================================================
+   MAPA DE MESAS — Garçom
+   ===================================================== */
+.mesas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 0.65rem;
+}
+.mesa-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: 0.85rem 0.75rem;
+  cursor: default;
+  transition: border-color 0.2s;
+}
+.mesa-card.mc-pronto  { border-color: rgba(45,138,64,0.5); }
+.mesa-card.mc-preparo { border-color: rgba(100,120,220,0.4); }
+.mesa-card-num   { font-family: var(--font-heading); font-size: 0.95rem; color: var(--gold); margin-bottom: 0.3rem; }
+.mesa-card-total { font-size: 0.75rem; color: var(--fg); margin-bottom: 0.4rem; }
+.mesa-card-status { font-size: 0.65rem; color: var(--fg-muted); margin-bottom: 0.6rem; min-height: 1rem; }
+.btn-fechar-conta {
+  width: 100%; padding: 0.3rem 0;
+  background: rgba(201,168,76,0.1);
+  border: 1px solid rgba(201,168,76,0.25);
+  border-radius: calc(var(--radius) - 2px);
+  color: var(--candle);
+  font-family: var(--font-heading); font-size: 0.65rem;
+  cursor: pointer; transition: background 0.2s;
+}
+.btn-fechar-conta:hover { background: rgba(201,168,76,0.22); }
+
+/* Forma de pagamento */
+.btn-forma {
+  flex: 1; padding: 0.5rem 0.3rem;
+  background: rgba(201,168,76,0.07);
+  border: 1px solid rgba(201,168,76,0.18);
+  border-radius: calc(var(--radius) - 2px);
+  color: var(--fg); font-family: var(--font-heading); font-size: 0.72rem;
+  cursor: pointer; transition: all 0.2s;
+}
+.btn-forma.selected {
+  background: rgba(201,168,76,0.25);
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+/* =====================================================
+   KANBAN — Cozinha / Garçom
+   ===================================================== */
+.kanban-board {
+  display: flex; gap: 0.65rem; overflow-x: auto;
+  align-items: flex-start; padding-bottom: 0.5rem;
+}
+.kanban-col {
+  flex: 1; min-width: 160px;
+  background: rgba(201,168,76,0.03);
+  border: 1px solid rgba(201,168,76,0.12);
+  border-radius: var(--radius); overflow: hidden;
+}
+.kanban-col-header {
+  padding: 0.6rem 0.85rem;
+  font-family: var(--font-heading); font-size: 0.72rem;
+  display: flex; align-items: center; justify-content: space-between;
+  border-bottom: 1px solid rgba(201,168,76,0.1);
+}
+.kh-count {
+  font-size: 0.65rem; padding: 0.1rem 0.45rem;
+  border-radius: 50px; background: rgba(0,0,0,0.25);
+}
+.kanban-col-pendente  .kanban-col-header { background: rgba(232,160,48,0.1);  color: var(--candle); }
+.kanban-col-preparando .kanban-col-header { background: rgba(100,120,220,0.12); color: #99aaff; }
+.kanban-col-pronto    .kanban-col-header { background: rgba(45,138,64,0.12);  color: #3daa52; }
+.kanban-col-entregar  .kanban-col-header { background: rgba(45,138,64,0.18);  color: #3daa52; }
+.kanban-col-preparo   .kanban-col-header { background: rgba(232,160,48,0.1);  color: var(--candle); }
+.kanban-col-body { padding: 0.5rem; display: flex; flex-direction: column; gap: 0.45rem; min-height: 60px; }
+.kanban-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: calc(var(--radius) - 2px);
+  padding: 0.6rem 0.7rem;
+}
+.kanban-card-id    { font-family: var(--font-heading); font-size: 0.65rem; color: var(--gold-dark); margin-bottom: 0.2rem; }
+.kanban-card-mesa  { font-size: 0.7rem; color: var(--gold); font-family: var(--font-heading); margin-bottom: 0.2rem; }
+.kanban-card-items { font-size: 0.75rem; color: var(--fg); line-height: 1.5; }
+.kanban-card-obs   { font-size: 0.68rem; color: var(--candle); margin-top: 0.2rem; }
+.kanban-card-info  { font-size: 0.65rem; color: var(--fg-muted); margin-top: 0.4rem; }
+.kanban-empty { padding: 1rem 0.5rem; text-align: center; color: var(--fg-muted); font-size: 0.7rem; font-style: italic; }
+.btn-kanban {
+  margin-top: 0.45rem; width: 100%;
+  padding: 0.35rem 0; border: none; border-radius: calc(var(--radius) - 2px);
+  font-family: var(--font-heading); font-size: 0.68rem;
+  cursor: pointer; transition: all 0.2s;
+}
+.btn-iniciar { background: rgba(232,160,48,0.2); color: var(--candle); }
+.btn-iniciar:hover { background: rgba(232,160,48,0.35); }
+.btn-pronto-k { background: rgba(45,138,64,0.2); color: #3daa52; }
+.btn-pronto-k:hover { background: rgba(45,138,64,0.35); }
+.btn-entregar-g { background: linear-gradient(135deg,#1a5c2a,#2d8a40); color:#fff; }
+.btn-entregar-g:hover { background: linear-gradient(135deg,#2d8a40,#3daa52); }
 
 /* =====================================================
    DASHBOARD

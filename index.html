@@ -501,8 +501,49 @@
     <button class="cart-close" onclick="fecharGarcom()" aria-label="Fechar painel">✕</button>
   </div>
   <div class="admin-body">
-    <div class="admin-empty" id="garcom-empty" style="display:none;">✓ Nenhum pedido aguardando entrega no momento.</div>
-    <div id="garcom-body"></div>
+    <!-- Abas -->
+    <div style="display:flex;gap:0.5rem;margin-bottom:1rem;border-bottom:1px solid rgba(201,168,76,0.15);padding-bottom:0.65rem;">
+      <button class="admin-tab active" id="garcom-tab-mesas" onclick="mudarAbaGarcom('mesas')">🗺️ Mesas</button>
+      <button class="admin-tab" id="garcom-tab-pedidos" onclick="mudarAbaGarcom('pedidos')">📋 Pedidos</button>
+    </div>
+    <!-- Aba Mesas -->
+    <div id="garcom-aba-mesas">
+      <div id="garcom-mesas-body"></div>
+    </div>
+    <!-- Aba Pedidos (Kanban) -->
+    <div id="garcom-aba-pedidos" style="display:none;">
+      <div id="garcom-body"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL FECHAR CONTA (Garçom) -->
+<div id="pag-modal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.7);display:none;align-items:center;justify-content:center;padding:1rem;">
+  <div style="background:var(--bg);border:1px solid rgba(201,168,76,0.3);border-radius:var(--radius);padding:1.5rem;width:100%;max-width:400px;max-height:80vh;overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+      <span style="font-family:var(--font-heading);font-size:1rem;color:var(--gold);">💳 Fechar Conta</span>
+      <button onclick="fecharModalPag()" style="background:none;border:none;color:var(--fg-muted);cursor:pointer;font-size:1.1rem;">✕</button>
+    </div>
+    <div id="pag-mesa-label" style="font-family:var(--font-heading);font-size:0.78rem;color:var(--candle);margin-bottom:0.75rem;"></div>
+    <div id="pag-itens" style="font-size:0.78rem;color:var(--fg);line-height:1.8;border:1px solid rgba(201,168,76,0.12);border-radius:calc(var(--radius)-2px);padding:0.75rem;margin-bottom:0.75rem;"></div>
+    <div style="font-family:var(--font-heading);font-size:1.1rem;color:var(--gold);text-align:right;margin-bottom:1rem;">
+      Total: <span id="pag-total-val">R$ 0,00</span>
+    </div>
+    <div style="font-size:0.72rem;color:var(--fg-muted);margin-bottom:0.5rem;font-family:var(--font-heading);">FORMA DE PAGAMENTO</div>
+    <div style="display:flex;gap:0.5rem;margin-bottom:1rem;" id="pag-formas">
+      <button class="btn-forma" id="pag-btn-pix"      onclick="selecionarFormaPag('pix')">📱 PIX</button>
+      <button class="btn-forma" id="pag-btn-dinheiro" onclick="selecionarFormaPag('dinheiro')">💵 Dinheiro</button>
+      <button class="btn-forma" id="pag-btn-cartao"   onclick="selecionarFormaPag('cartao')">💳 Cartão</button>
+    </div>
+    <div id="pag-pix-info" style="display:none;background:rgba(201,168,76,0.08);border:1px solid rgba(201,168,76,0.2);border-radius:calc(var(--radius)-2px);padding:0.75rem;margin-bottom:0.75rem;font-size:0.78rem;">
+      <div style="font-family:var(--font-heading);font-size:0.7rem;color:var(--gold-dark);margin-bottom:0.3rem;">CHAVE PIX</div>
+      <div id="pag-pix-chave" style="color:var(--fg);word-break:break-all;"></div>
+      <button onclick="copiarPixChave()" style="margin-top:0.5rem;width:100%;padding:0.3rem;background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.2);border-radius:4px;color:var(--candle);font-size:0.68rem;cursor:pointer;font-family:var(--font-heading);">Copiar chave</button>
+    </div>
+    <button id="btn-confirmar-pag" onclick="confirmarPagamentoGarcom()" disabled
+      style="width:100%;padding:0.75rem;background:linear-gradient(135deg,rgba(45,138,64,0.3),rgba(45,138,64,0.5));border:1px solid #2d8a40;border-radius:var(--radius);color:#3daa52;font-family:var(--font-heading);font-size:0.85rem;cursor:pointer;opacity:0.5;transition:all 0.2s;">
+      ✓ Confirmar Pagamento
+    </button>
   </div>
 </div>
 
