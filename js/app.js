@@ -1139,6 +1139,7 @@ async function abrirFecharConta(mesa) {
   const { data } = await supabase.from('mesas').select('*')
     .eq('mesa', mesa).gte('ts', startOfDay.getTime()).order('ts', {ascending:true});
   const pedidos = data || [];
+  window._pagPedidosCache = pedidos;
 
   const total = pedidos.reduce((s, p) => s + (p.total||0), 0);
   _pagTotal = total;
@@ -1181,55 +1182,82 @@ function mostrarSecaoFechar() {
   document.getElementById('pag-secao-transferir').style.display = 'none';
 }
 
+let _pagPedidosSelecionados = new Set();
+
 function mostrarSecaoTransferir() {
   document.getElementById('pag-acoes').style.display            = 'none';
   document.getElementById('pag-secao-fechar').style.display     = 'none';
   document.getElementById('pag-secao-transferir').style.display = 'block';
   _pagDestino = null;
+  _pagPedidosSelecionados = new Set();
 
+  // Lista de pedidos com checkbox (usa _pagPedidosCache preenchido em abrirFecharConta)
+  const pedidos = window._pagPedidosCache || [];
+  const listHtml = pedidos.length === 0 ? '<div style="color:var(--fg-muted);font-size:0.78rem;">Nenhum pedido hoje.</div>' :
+    pedidos.map(p => {
+      const hora = new Date(p.ts).toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+      const resumo = p.itens.map(i => `${i.qty}× ${i.name}`).join(', ');
+      return `
+        <label style="display:flex;align-items:flex-start;gap:0.5rem;padding:0.4rem 0;border-bottom:1px solid rgba(201,168,76,0.08);cursor:pointer;">
+          <input type="checkbox" id="chk-ped-${p.id}" value="${p.id}"
+            style="margin-top:0.2rem;accent-color:var(--gold);cursor:pointer;"
+            onchange="togglePedidoTransf('${p.id}', this.checked)">
+          <div style="font-size:0.75rem;color:var(--fg);line-height:1.5;">
+            <div style="font-size:0.65rem;color:var(--fg-muted);">${hora} · R$ ${p.total.toFixed(2).replace('.',',')}</div>
+            <div>${resumo}</div>
+          </div>
+        </label>`;
+    }).join('');
+
+  // Mesa picker
   const numMesas = parseInt(localStorage.getItem('bf_num_mesas') || String(window.NUM_MESAS_PADRAO || 20), 10);
-  const picker = document.getElementById('pag-mesa-picker');
-  let html = '';
+  let pickerHtml = '';
   for (let i = 1; i <= numMesas; i++) {
-    if (String(i) === String(_pagMesa)) continue; // não pode transferir para a mesma mesa
-    html += `<div class="mesa-pick-btn" id="mpick-${i}" onclick="selecionarMesaDestino(${i})"
-      style="padding:0.5rem;text-align:center;border:1px solid rgba(201,168,76,0.18);border-radius:calc(var(--radius)-2px);cursor:pointer;font-family:var(--font-heading);font-size:0.78rem;color:var(--fg);transition:all 0.15s;">
-      ${i}
-    </div>`;
+    if (String(i) === String(_pagMesa)) continue;
+    pickerHtml += `<div class="mesa-pick-btn" id="mpick-${i}" onclick="selecionarMesaDestino(${i})"
+      style="padding:0.5rem;text-align:center;border:1px solid rgba(201,168,76,0.18);border-radius:calc(var(--radius)-2px);cursor:pointer;font-family:var(--font-heading);font-size:0.78rem;color:var(--fg);transition:all 0.15s;">${i}</div>`;
   }
-  picker.innerHTML = html;
 
-  const btnT = document.getElementById('btn-confirmar-transferir');
-  btnT.disabled = true; btnT.style.opacity = '0.5';
+  document.getElementById('pag-mesa-picker').innerHTML = `
+    <div style="font-size:0.68rem;color:var(--fg-muted);font-family:var(--font-heading);margin-bottom:0.4rem;">SELECIONE OS PEDIDOS:</div>
+    <div style="margin-bottom:0.75rem;">${listHtml}</div>
+    <div style="font-size:0.68rem;color:var(--fg-muted);font-family:var(--font-heading);margin-bottom:0.4rem;">MESA DESTINO:</div>
+    <div class="mesas-grid">${pickerHtml}</div>`;
+
+  atualizarBtnTransferir();
+}
+
+function togglePedidoTransf(id, checked) {
+  if (checked) _pagPedidosSelecionados.add(id);
+  else _pagPedidosSelecionados.delete(id);
+  atualizarBtnTransferir();
+}
+
+function atualizarBtnTransferir() {
+  const btn = document.getElementById('btn-confirmar-transferir');
+  const ok = _pagPedidosSelecionados.size > 0 && _pagDestino;
+  btn.disabled = !ok; btn.style.opacity = ok ? '1' : '0.5';
 }
 
 function selecionarMesaDestino(num) {
   _pagDestino = num;
   document.querySelectorAll('.mesa-pick-btn').forEach(b => {
-    b.style.background = '';
-    b.style.borderColor = 'rgba(201,168,76,0.18)';
-    b.style.color = 'var(--fg)';
+    b.style.background = ''; b.style.borderColor = 'rgba(201,168,76,0.18)'; b.style.color = 'var(--fg)';
   });
   const sel = document.getElementById(`mpick-${num}`);
-  if (sel) {
-    sel.style.background    = 'rgba(201,168,76,0.2)';
-    sel.style.borderColor   = 'var(--gold)';
-    sel.style.color         = 'var(--gold)';
-  }
-  const btn = document.getElementById('btn-confirmar-transferir');
-  btn.disabled = false; btn.style.opacity = '1';
+  if (sel) { sel.style.background = 'rgba(201,168,76,0.2)'; sel.style.borderColor = 'var(--gold)'; sel.style.color = 'var(--gold)'; }
+  atualizarBtnTransferir();
 }
 
 async function confirmarTransferencia() {
-  if (!_pagMesa || !_pagDestino) return;
+  if (!_pagMesa || !_pagDestino || _pagPedidosSelecionados.size === 0) return;
   const btn = document.getElementById('btn-confirmar-transferir');
   btn.disabled = true; btn.textContent = '...';
   try {
-    const startOfDay = new Date(); startOfDay.setHours(0,0,0,0);
+    const ids = Array.from(_pagPedidosSelecionados);
     const { error } = await supabase.from('mesas')
       .update({ mesa: String(_pagDestino) })
-      .eq('mesa', String(_pagMesa))
-      .gte('ts', startOfDay.getTime());
+      .in('id', ids);
     if (error) throw error;
     fecharModalPag();
     mostrarToast(`✓ Mesa ${_pagMesa} transferida para Mesa ${_pagDestino}`);
