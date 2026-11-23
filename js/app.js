@@ -1225,10 +1225,11 @@ async function confirmarTransferencia() {
   const btn = document.getElementById('btn-confirmar-transferir');
   btn.disabled = true; btn.textContent = '...';
   try {
+    const startOfDay = new Date(); startOfDay.setHours(0,0,0,0);
     const { error } = await supabase.from('mesas')
       .update({ mesa: String(_pagDestino) })
       .eq('mesa', String(_pagMesa))
-      .in('status', ['pendente', 'preparando', 'pronto']);
+      .gte('ts', startOfDay.getTime());
     if (error) throw error;
     fecharModalPag();
     mostrarToast(`✓ Mesa ${_pagMesa} transferida para Mesa ${_pagDestino}`);
