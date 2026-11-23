@@ -10,7 +10,7 @@ const wpp    = process.env.WPP_NUM           || '';
 const senha  = process.env.ADMIN_SENHA       || 'filosofal2024';
 const secret = process.env.MESA_SECRET       || 'beco-filosofal-2024';
 const total  = parseInt(process.env.NUM_MESAS || '20', 10);
-const MAX_MESAS = 50; // tokens gerados para até 50 mesas
+const MAX_MESAS = 100; // tokens gerados para até 100 mesas
 
 // Gera token único e imprevisível para cada mesa usando HMAC-SHA256
 function gerarToken(mesa) {

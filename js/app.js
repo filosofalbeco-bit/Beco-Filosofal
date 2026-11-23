@@ -911,7 +911,7 @@ function mudarAbaAdmin(aba) {
   if (aba === 'links') renderizarLinksAdmin();
 }
 
-const MESA_MAX = 50;
+const MESA_MAX = 100;
 let mesasVisiveis = parseInt(localStorage.getItem('bf_num_mesas') || String(window.NUM_MESAS_PADRAO || 20), 10);
 
 function renderizarLinksAdmin() {
