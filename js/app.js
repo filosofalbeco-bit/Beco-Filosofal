@@ -826,7 +826,7 @@ function criarDbRef(sb) {
 let painelAdminAtivo   = false;
 let painelCozinhaAtivo = false;
 let painelGarcomAtivo  = false;
-const ADMIN_SENHA = window.ADMIN_SENHA || 'filisofal2026';
+const ADMIN_SENHA = window.ADMIN_SENHA || 'filosofal2026';
 
 // Detectar qual painel de serviço abrir
 (function detectarPaineis() {
