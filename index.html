@@ -497,7 +497,7 @@
 <!-- PAINEL ADMIN/GARÇOM -->
 <div id="admin-overlay">
   <div class="admin-header">
-    <span class="admin-title">🪄 Painel do Garçom</span>
+    <span class="admin-title">🪄 Painel de Gestão</span>
     <span id="admin-last-update" style="font-size:0.7rem;color:var(--fg-muted);font-family:var(--font-body);"></span>
     <button class="cart-close" onclick="fecharAdmin()" aria-label="Fechar painel">✕</button>
   </div>
@@ -520,13 +520,20 @@
       <!-- Abas -->
       <div style="display:flex;gap:0.5rem;margin-bottom:1.25rem;border-bottom:1px solid rgba(201,168,76,0.15);padding-bottom:0.75rem;">
         <button class="admin-tab active" id="tab-pedidos" onclick="mudarAbaAdmin('pedidos')">🍔 Pedidos</button>
+        <button class="admin-tab" id="tab-cozinha" onclick="mudarAbaAdmin('cozinha')">🔥 Cozinha</button>
         <button class="admin-tab" id="tab-links" onclick="mudarAbaAdmin('links')">📲 Links das Mesas</button>
       </div>
 
-      <!-- Aba pedidos -->
+      <!-- Aba pedidos (garçom — visão completa) -->
       <div id="admin-aba-pedidos">
         <div class="admin-empty" id="admin-empty">Nenhum pedido ainda. Aguardando travessuras...</div>
         <div id="admin-body"></div>
+      </div>
+
+      <!-- Aba cozinha (somente pendentes, foco no preparo) -->
+      <div id="admin-aba-cozinha" style="display:none;">
+        <div class="admin-empty" id="cozinha-empty" style="display:none;">✓ Nenhum pedido pendente no momento.</div>
+        <div id="cozinha-body-admin"></div>
       </div>
 
       <!-- Aba links das mesas -->

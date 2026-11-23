@@ -802,7 +802,7 @@ const ADMIN_SENHA = window.ADMIN_SENHA || 'filisofal2026';
 (function detectarAdmin() {
   try {
     const params = new URLSearchParams(window.location.search);
-    if (params.get('painel') === 'admin') {
+    if (params.get('painel') === 'gestao' || params.get('painel') === 'admin') {
       painelAdminAtivo = true;
       document.getElementById('admin-overlay').classList.add('open');
     }
@@ -905,10 +905,81 @@ function fecharAdmin() {
 
 function mudarAbaAdmin(aba) {
   document.getElementById('admin-aba-pedidos').style.display = aba === 'pedidos' ? 'block' : 'none';
+  document.getElementById('admin-aba-cozinha').style.display = aba === 'cozinha' ? 'block' : 'none';
   document.getElementById('admin-aba-links').style.display   = aba === 'links'   ? 'block' : 'none';
   document.getElementById('tab-pedidos').classList.toggle('active', aba === 'pedidos');
+  document.getElementById('tab-cozinha').classList.toggle('active', aba === 'cozinha');
   document.getElementById('tab-links').classList.toggle('active',   aba === 'links');
-  if (aba === 'links') renderizarLinksAdmin();
+  if (aba === 'links')   renderizarLinksAdmin();
+  if (aba === 'cozinha') renderizarCozinha();
+}
+
+async function renderizarCozinha() {
+  const body     = document.getElementById('cozinha-body-admin');
+  const emptyEl  = document.getElementById('cozinha-empty');
+  if (!dbRef) {
+    body.innerHTML = '<div class="admin-empty">⏳ Conectando ao banco...</div>';
+    setTimeout(renderizarCozinha, 2000);
+    return;
+  }
+  try {
+    const { data } = await supabase.from('mesas').select('*').eq('status', 'pendente').order('ts', { ascending: true });
+    const pedidos = data || [];
+
+    if (pedidos.length === 0) {
+      emptyEl.style.display = 'block';
+      body.innerHTML = '';
+      return;
+    }
+    emptyEl.style.display = 'none';
+
+    // Agrupar por mesa
+    const porMesa = {};
+    pedidos.forEach(p => {
+      if (!porMesa[p.mesa]) porMesa[p.mesa] = [];
+      porMesa[p.mesa].push(p);
+    });
+
+    body.innerHTML = Object.entries(porMesa)
+      .sort((a, b) => Number(a[0]) - Number(b[0]))
+      .map(([mesa, peds]) => `
+        <div class="admin-mesa-block">
+          <div class="admin-mesa-header">
+            <span class="admin-mesa-num">🔥 Mesa ${mesa}</span>
+            <span class="admin-mesa-status">⏳ ${peds.length} pedido${peds.length > 1 ? 's' : ''} pendente${peds.length > 1 ? 's' : ''}</span>
+          </div>
+          ${peds.sort((a, b) => a.ts - b.ts).map(p => `
+            <div class="admin-pedido" id="coz-ped-${p.id}">
+              <div class="admin-pedido-info">
+                <div class="admin-pedido-id">${p.id} · ${new Date(p.ts).toLocaleTimeString('pt-BR')}</div>
+                <div class="admin-pedido-items">${p.itens.map(i => `<strong>${i.qty}×</strong> ${i.name}`).join(' &nbsp;·&nbsp; ')}</div>
+                ${p.obs ? `<div class="admin-pedido-time" style="color:var(--candle);">📝 ${p.obs}</div>` : ''}
+              </div>
+              <button class="btn-entregar" onclick="marcarPronto('${p.id}', this)">✓ Pronto</button>
+            </div>
+          `).join('')}
+        </div>
+      `).join('');
+  } catch(e) {
+    body.innerHTML = '<div class="admin-empty">Erro ao carregar pedidos.</div>';
+    console.warn('Cozinha fetch failed', e);
+  }
+}
+
+async function marcarPronto(pedidoId, btn) {
+  btn.disabled = true;
+  btn.textContent = '...';
+  try {
+    const { error } = await supabase.from('mesas').update({ status: 'entregue' }).eq('id', pedidoId);
+    if (error) throw error;
+    const row = document.getElementById(`coz-ped-${pedidoId}`);
+    if (row) row.remove();
+    renderizarCozinha();
+  } catch(e) {
+    console.warn('Pronto failed', e);
+    btn.disabled = false;
+    btn.textContent = '✓ Pronto';
+  }
 }
 
 const MESA_MAX = 100;
