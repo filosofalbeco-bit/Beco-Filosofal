@@ -365,10 +365,15 @@ let deliveryMode = 'entrega';
 let freteVal = 0;
 let mesaAtiva = null;
 
-// Retorna o timestamp de início do dia (meia-noite) para filtrar pedidos de hoje
+// Retorna o timestamp de início do "dia do restaurante" (5h da manhã).
+// Se for antes das 5h, ainda é o turno do dia anterior.
 function sessaoMesaInicio() {
-  const d = new Date(); d.setHours(0, 0, 0, 0);
-  return d.getTime();
+  const INICIO_TURNO = 5; // hora em que começa o novo dia do restaurante
+  const agora = new Date();
+  const corte = new Date();
+  corte.setHours(INICIO_TURNO, 0, 0, 0);
+  if (agora < corte) corte.setDate(corte.getDate() - 1); // antes das 5h → dia anterior
+  return corte.getTime();
 }
 
 // Detectar modo mesa via ?mesa=TOKEN na URL
