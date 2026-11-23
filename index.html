@@ -494,7 +494,19 @@
   <div class="admin-body" id="cozinha-body"></div>
 </div>
 
-<!-- PAINEL ADMIN/GARÇOM -->
+<!-- PAINEL GARÇOM -->
+<div id="garcom-overlay">
+  <div class="admin-header">
+    <span class="admin-title">🧙 Painel do Garçom</span>
+    <button class="cart-close" onclick="fecharGarcom()" aria-label="Fechar painel">✕</button>
+  </div>
+  <div class="admin-body">
+    <div class="admin-empty" id="garcom-empty" style="display:none;">✓ Nenhum pedido aguardando entrega no momento.</div>
+    <div id="garcom-body"></div>
+  </div>
+</div>
+
+<!-- PAINEL GESTÃO (dono) -->
 <div id="admin-overlay">
   <div class="admin-header">
     <span class="admin-title">🪄 Painel de Gestão</span>
@@ -508,7 +520,7 @@
         <div class="admin-senha-title">🔐 Acesso Restrito</div>
         <div class="admin-senha-sub">"Alohomora!" — informe a senha do painel</div>
         <input class="cart-input" id="admin-senha-input" type="password"
-          placeholder="Senha do garçom" style="width:100%;margin-bottom:0.75rem;"
+          placeholder="Senha de gestão" style="width:100%;margin-bottom:0.75rem;"
           onkeydown="if(event.key==='Enter')verificarSenhaAdmin()">
         <button class="btn-pedido" onclick="verificarSenhaAdmin()">Entrar</button>
         <div class="admin-senha-err" id="admin-senha-err"></div>
@@ -518,14 +530,50 @@
     <!-- Painel principal -->
     <div id="admin-painel" style="display:none;">
       <!-- Abas -->
-      <div style="display:flex;gap:0.5rem;margin-bottom:1.25rem;border-bottom:1px solid rgba(201,168,76,0.15);padding-bottom:0.75rem;">
-        <button class="admin-tab active" id="tab-pedidos" onclick="mudarAbaAdmin('pedidos')">🍔 Pedidos</button>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:1.25rem;border-bottom:1px solid rgba(201,168,76,0.15);padding-bottom:0.75rem;">
+        <button class="admin-tab active" id="tab-dashboard" onclick="mudarAbaAdmin('dashboard')">📊 Dashboard</button>
+        <button class="admin-tab" id="tab-pedidos" onclick="mudarAbaAdmin('pedidos')">🍔 Pedidos</button>
         <button class="admin-tab" id="tab-cozinha" onclick="mudarAbaAdmin('cozinha')">🔥 Cozinha</button>
-        <button class="admin-tab" id="tab-links" onclick="mudarAbaAdmin('links')">📲 Links das Mesas</button>
+        <button class="admin-tab" id="tab-links" onclick="mudarAbaAdmin('links')">📲 Links</button>
       </div>
 
-      <!-- Aba pedidos (garçom — visão completa) -->
-      <div id="admin-aba-pedidos">
+      <!-- Aba dashboard -->
+      <div id="admin-aba-dashboard">
+        <div class="dash-grid">
+          <div class="dash-card">
+            <div class="dash-num" id="dash-mesas-ativas">—</div>
+            <div class="dash-label">Mesas com Clientes</div>
+          </div>
+          <div class="dash-card dash-orange">
+            <div class="dash-num" id="dash-em-preparo">—</div>
+            <div class="dash-label">Mesa em Preparo</div>
+          </div>
+          <div class="dash-card dash-green">
+            <div class="dash-num" id="dash-prontos-mesa">—</div>
+            <div class="dash-label">Mesa / Aguard. Entrega</div>
+          </div>
+          <div class="dash-card dash-orange">
+            <div class="dash-num" id="dash-ext-preparo">—</div>
+            <div class="dash-label">Externos em Preparo</div>
+          </div>
+          <div class="dash-card dash-green">
+            <div class="dash-num" id="dash-ext-prontos">—</div>
+            <div class="dash-label">Externos p/ Retirar</div>
+          </div>
+          <div class="dash-card">
+            <div class="dash-num" id="dash-total-hoje">—</div>
+            <div class="dash-label">Pedidos Hoje</div>
+          </div>
+          <div class="dash-card dash-fat">
+            <div class="dash-num" id="dash-fat-hoje">R$ —</div>
+            <div class="dash-label">Faturamento Hoje</div>
+          </div>
+        </div>
+        <div class="dash-refresh">🔄 Atualiza a cada 10s</div>
+      </div>
+
+      <!-- Aba pedidos (visão completa) -->
+      <div id="admin-aba-pedidos" style="display:none;">
         <div class="admin-empty" id="admin-empty">Nenhum pedido ainda. Aguardando travessuras...</div>
         <div id="admin-body"></div>
       </div>

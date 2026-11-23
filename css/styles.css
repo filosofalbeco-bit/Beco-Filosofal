@@ -86,7 +86,8 @@
   font-size: 0.75rem; padding: 0.2rem 0.65rem; border-radius: 50px; font-family: var(--font-heading);
 }
 .status-pill.pendente { background: rgba(232,160,48,0.15); color: var(--candle); }
-.status-pill.entregue { background: rgba(45,138,64,0.2); color: #3daa52; }
+.status-pill.pronto   { background: rgba(45,138,64,0.15); color: #3daa52; }
+.status-pill.entregue { background: rgba(45,138,64,0.2); color: #3daa52; opacity:0.6; }
 .status-item-itens { font-size: 0.82rem; color: var(--fg); line-height: 1.6; }
 .status-item-meta { font-size: 0.72rem; color: var(--fg-muted); margin-top: 0.25rem; }
 
@@ -349,7 +350,18 @@
 }
 .btn-entregar:hover { background: linear-gradient(135deg, #2d8a40, #3daa52); }
 .btn-entregar.entregue { background: rgba(45,138,64,0.2); border: 1px solid #2d8a40; color: #3daa52; cursor: default; }
+.btn-pronto {
+  background: linear-gradient(135deg, #7a4e1e, #c07028);
+  border: none; border-radius: var(--radius);
+  padding: 0.5rem 1rem;
+  font-family: var(--font-heading); font-size: 0.72rem;
+  color: #fff; cursor: pointer; white-space: nowrap; flex-shrink: 0;
+  transition: all 0.2s;
+}
+.btn-pronto:hover { background: linear-gradient(135deg, #c07028, #e08030); }
 .admin-empty { padding: 3rem; text-align: center; color: var(--fg-muted); font-family: var(--font-scroll); font-style: italic; }
+.mesa-pronta { border-color: rgba(45,138,64,0.4) !important; }
+.mesa-pronta .admin-mesa-header { background: rgba(45,138,64,0.08) !important; }
 
 /* Abas do painel admin */
 .admin-tab {
@@ -1156,3 +1168,37 @@ footer {
 /* Texto se revelando como tinta no pergaminho */
 .ink-reveal { position: relative; }
 .ink-reveal::after { display: none; }
+
+/* =====================================================
+   PAINÉIS DE SERVIÇO — Garçom / Cozinha standalone
+   ===================================================== */
+#cozinha-overlay, #garcom-overlay {
+  position: fixed; inset: 0; z-index: 800;
+  background: var(--navy);
+  display: none; flex-direction: column;
+  overflow-y: auto;
+}
+#cozinha-overlay.open, #garcom-overlay.open { display: flex; }
+
+/* =====================================================
+   DASHBOARD
+   ===================================================== */
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+}
+.dash-card {
+  background: rgba(201,168,76,0.07);
+  border: 1px solid rgba(201,168,76,0.15);
+  border-radius: var(--radius);
+  padding: 1rem 0.75rem;
+  text-align: center;
+}
+.dash-card.dash-orange { border-color: rgba(220,120,40,0.3); background: rgba(220,120,40,0.07); }
+.dash-card.dash-green  { border-color: rgba(45,138,64,0.3);  background: rgba(45,138,64,0.07);  }
+.dash-card.dash-fat    { grid-column: 1 / -1; border-color: rgba(201,168,76,0.3); background: rgba(201,168,76,0.1); }
+.dash-num   { font-family: var(--font-heading); font-size: 2rem; color: var(--gold); line-height: 1; }
+.dash-label { font-family: var(--font-body); font-size: 0.72rem; color: var(--fg-muted); margin-top: 0.4rem; }
+.dash-refresh { text-align: center; font-size: 0.7rem; color: var(--fg-muted); margin-top: 0.75rem; padding-bottom: 1rem; }
