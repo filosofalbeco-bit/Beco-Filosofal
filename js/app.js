@@ -365,6 +365,12 @@ let deliveryMode = 'entrega';
 let freteVal = 0;
 let mesaAtiva = null;
 
+// Retorna o timestamp de início da sessão do cliente atual nesta mesa
+function sessaoMesaInicio() {
+  if (!mesaAtiva) return 0;
+  return parseInt(localStorage.getItem('bf_sess_' + mesaAtiva) || '0', 10);
+}
+
 // Detectar modo mesa via ?mesa=TOKEN na URL
 (function detectarMesa() {
   try {
@@ -375,6 +381,11 @@ let mesaAtiva = null;
     if (mesa) {
       mesaAtiva = mesa;
       deliveryMode = 'mesa';
+      // Iniciar sessão da mesa (cada cliente novo tem timestamp próprio)
+      const sessKey = 'bf_sess_' + mesa;
+      if (!localStorage.getItem(sessKey)) {
+        localStorage.setItem(sessKey, String(Date.now()));
+      }
       // Badge na nav
       const navBrand = document.querySelector('.nav-brand');
       if (navBrand) {
@@ -577,8 +588,9 @@ async function atualizarStatusEncerrar() {
     return;
   }
   try {
-    const snap = await dbRef.collection('mesas').where('mesa','==',mesaAtiva).get();
-    const pedidos = snap.docs.map(d => d.data());
+    const { data: rawPeds } = await supabase.from('mesas').select('*')
+      .eq('mesa', mesaAtiva).gte('ts', sessaoMesaInicio()).order('ts', {ascending:true});
+    const pedidos = rawPeds || [];
     const total = pedidos.length;
     const entregues = pedidos.filter(p => p.status === 'entregue').length;
     const pendentes = total - entregues;
@@ -597,10 +609,10 @@ async function atualizarStatusEncerrar() {
 
 async function encerrarConta() {
   if (!mesaAtiva || !dbRef) return;
-  // Buscar todos os pedidos da mesa
   try {
-    const snap = await dbRef.collection('mesas').where('mesa','==',mesaAtiva).get();
-    const pedidos = snap.docs.map(d => d.data());
+    const { data: rawPeds } = await supabase.from('mesas').select('*')
+      .eq('mesa', mesaAtiva).gte('ts', sessaoMesaInicio()).order('ts', {ascending:true});
+    const pedidos = rawPeds || [];
     const pendentes = pedidos.filter(p => p.status !== 'entregue');
     if (pendentes.length > 0) {
       mostrarToast('⏳ Aguarde — há pedidos pendentes!');
@@ -612,8 +624,10 @@ async function encerrarConta() {
     }
     // Calcular total acumulado
     const totalGeral = pedidos.reduce((s, p) => s + p.total, 0);
-    const codigo = pedidos[0].id; // usa o primeiro código como referência
+    const codigo = pedidos[0].id;
     fecharCarrinho();
+    // Encerrar sessão — próximo cliente começa do zero
+    localStorage.removeItem('bf_sess_' + mesaAtiva);
     abrirPix(codigo, totalGeral);
   } catch(e) {
     console.warn('DB error on encerrar', e);
@@ -1376,9 +1390,11 @@ async function renderizarStatusPainel() {
   }
 
   try {
-    // Filtra SOMENTE os pedidos desta mesa
-    const snap = await dbRef.collection('mesas').where('mesa','==',mesaAtiva).get();
-    const pedidos = snap.docs.map(d => d.data()).sort((a, b) => a.ts - b.ts);
+    // Filtra pedidos desta mesa e desta sessão (evita mistura com cliente anterior)
+    const { data: rawPeds, error: errStatus } = await supabase.from('mesas').select('*')
+      .eq('mesa', mesaAtiva).gte('ts', sessaoMesaInicio()).order('ts', {ascending:true});
+    if (errStatus) throw errStatus;
+    const pedidos = rawPeds || [];
 
     if (pedidos.length === 0) {
       body.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--fg-muted);font-family:var(--font-scroll);font-style:italic;">Nenhum pedido enviado ainda.</div>';
