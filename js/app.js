@@ -911,30 +911,49 @@ function mudarAbaAdmin(aba) {
   if (aba === 'links') renderizarLinksAdmin();
 }
 
+const MESA_MAX = 50;
+let mesasVisiveis = parseInt(localStorage.getItem('bf_num_mesas') || String(window.NUM_MESAS_PADRAO || 20), 10);
+
 function renderizarLinksAdmin() {
-  const tokens = window.MESAS_TOKENS || {};
-  const base   = window.location.origin;
-  // Inverter mapa {token: num} → {num: token}
+  const tokens  = window.MESAS_TOKENS || {};
+  const base    = window.location.origin;
   const porMesa = {};
   Object.entries(tokens).forEach(([tok, num]) => { porMesa[num] = tok; });
-  const nums = Object.keys(porMesa).sort((a, b) => Number(a) - Number(b));
 
   const lista = document.getElementById('admin-links-lista');
-  if (nums.length === 0) {
-    lista.innerHTML = '<div class="admin-empty">Tokens não encontrados.<br>Verifique a variável MESA_SECRET na Vercel.</div>';
+  if (Object.keys(porMesa).length === 0) {
+    lista.innerHTML = '<div class="admin-empty">Tokens não encontrados.<br>Verifique MESA_SECRET na Vercel.</div>';
     return;
   }
 
-  lista.innerHTML = nums.map(num => {
-    const url = `${base}/?mesa=${porMesa[num]}`;
-    return `
+  let html = '';
+  for (let i = 1; i <= mesasVisiveis; i++) {
+    const tok = porMesa[String(i)];
+    if (!tok) continue;
+    const url = `${base}/?mesa=${tok}`;
+    html += `
       <div class="mesa-link-row">
-        <span class="mesa-link-num">Mesa ${String(num).padStart(2,'0')}</span>
+        <span class="mesa-link-num">Mesa ${String(i).padStart(2,'0')}</span>
         <span class="mesa-link-url" title="${url}">${url}</span>
         <button class="mesa-link-copy" onclick="copiarLink(this,'${url}')">Copiar</button>
+        <button class="mesa-link-copy" onclick="imprimirQR(${i},'${url}')" style="background:rgba(45,138,64,0.1);border-color:#2d8a40;color:#3daa52;">🖨️</button>
       </div>
     `;
-  }).join('');
+  }
+
+  // Botão adicionar mesa
+  if (mesasVisiveis < MESA_MAX) {
+    html += `<button onclick="adicionarMesa()" style="margin-top:1rem;width:100%;padding:0.65rem;background:none;border:1px dashed rgba(201,168,76,0.3);border-radius:var(--radius);color:var(--gold-dark);font-family:var(--font-heading);font-size:0.78rem;cursor:pointer;">+ Adicionar Mesa ${mesasVisiveis + 1}</button>`;
+  }
+
+  lista.innerHTML = html;
+}
+
+function adicionarMesa() {
+  if (mesasVisiveis >= MESA_MAX) return;
+  mesasVisiveis++;
+  localStorage.setItem('bf_num_mesas', String(mesasVisiveis));
+  renderizarLinksAdmin();
 }
 
 function copiarLink(btn, url) {
@@ -949,6 +968,38 @@ function copiarLink(btn, url) {
     btn.textContent = '✓ Copiado';
     setTimeout(() => { btn.textContent = 'Copiar'; }, 2000);
   });
+}
+
+function imprimirQR(numMesa, url) {
+  const win = window.open('', '_blank', 'width=500,height=600');
+  win.document.write(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Mesa ${numMesa} — Beco FilosoFal Burguer</title>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"><\/script>
+  <style>
+    body { font-family: serif; text-align: center; padding: 2rem; background: #fff; color: #1a1208; }
+    h1 { font-size: 1.8rem; margin-bottom: 0.25rem; }
+    h2 { font-size: 1.1rem; font-weight: normal; color: #7a5e1e; margin-bottom: 1.5rem; }
+    canvas { border: 4px solid #c9a84c; border-radius: 8px; padding: 10px; }
+    p { font-size: 0.85rem; color: #7a5e1e; margin-top: 1rem; }
+    .instrucao { font-size: 1rem; margin-top: 1.5rem; border-top: 1px solid #c9a84c; padding-top: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>🌙 Beco FilosoFal Burguer</h1>
+  <h2>Mesa ${numMesa}</h2>
+  <canvas id="qr"></canvas>
+  <p class="instrucao">📱 Aponte a câmera do celular para fazer seu pedido</p>
+  <script>
+    QRCode.toCanvas(document.getElementById('qr'), '${url}', { width: 260, margin: 2 }, function() {
+      setTimeout(() => window.print(), 400);
+    });
+  <\/script>
+</body>
+</html>`);
+  win.document.close();
 }
 
 function fecharCozinha() {
