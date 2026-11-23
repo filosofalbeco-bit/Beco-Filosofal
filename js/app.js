@@ -532,6 +532,10 @@ async function confirmarPedidoMesa(total) {
   fecharCarrinho();
   atualizarCarrinho();
 
+  // Garantir que o botão de status está visível
+  const statusBtn = document.getElementById('status-btn');
+  if (statusBtn) statusBtn.style.display = 'flex';
+
   // Toast de confirmação
   mostrarToast(`✓ Pedido ${codigo} enviado para a cozinha!`);
 
@@ -539,7 +543,7 @@ async function confirmarPedidoMesa(total) {
   setTimeout(() => {
     atualizarStatusEncerrar();
     renderizarStatusPainel();
-  }, 500);
+  }, 800);
 }
 
 function mostrarToast(msg) {
@@ -920,11 +924,17 @@ function fecharStatus() {
 
 async function renderizarStatusPainel() {
   const body = document.getElementById('status-body');
-  if (!mesaAtiva || !dbRef) {
-    body.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--fg-muted);font-family:var(--font-scroll);font-style:italic;">Conectando ao banco...</div>';
+  if (!body) return;
+
+  // DB ainda não inicializou — aguardar e tentar novamente
+  if (!dbRef) {
+    body.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--fg-muted);font-family:var(--font-scroll);font-style:italic;">⏳ Conectando ao banco...<br><small>Aguarde alguns segundos.</small></div>';
+    setTimeout(renderizarStatusPainel, 2000);
     return;
   }
+
   try {
+    // Filtra SOMENTE os pedidos desta mesa
     const snap = await dbRef.collection('mesas').where('mesa','==',mesaAtiva).get();
     const pedidos = snap.docs.map(d => d.data()).sort((a, b) => a.ts - b.ts);
 
@@ -948,7 +958,10 @@ async function renderizarStatusPainel() {
     `).join('');
 
     atualizarBadgeStatus(pedidos);
-  } catch(e) { console.warn('Status fetch failed', e); }
+  } catch(e) {
+    body.innerHTML = '<div style="text-align:center;padding:3rem;color:#e06060;font-size:0.82rem;">Erro ao carregar pedidos. Tente novamente.</div>';
+    console.warn('Status fetch failed', e);
+  }
 }
 
 function atualizarBadgeStatus(pedidos) {
@@ -968,7 +981,10 @@ function atualizarBadgeStatus(pedidos) {
 
 function iniciarPollingStatus() {
   if (!mesaAtiva) return;
+  const statusBtn = document.getElementById('status-btn');
+  if (statusBtn) statusBtn.style.display = 'flex';
   renderizarStatusPainel();
+  if (statusInterval) clearInterval(statusInterval);
   statusInterval = setInterval(renderizarStatusPainel, 5000);
 }
 
