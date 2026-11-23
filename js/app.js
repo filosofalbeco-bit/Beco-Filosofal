@@ -365,10 +365,10 @@ let deliveryMode = 'entrega';
 let freteVal = 0;
 let mesaAtiva = null;
 
-// Retorna o timestamp de início da sessão do cliente atual nesta mesa
+// Retorna o timestamp de início do dia (meia-noite) para filtrar pedidos de hoje
 function sessaoMesaInicio() {
-  if (!mesaAtiva) return 0;
-  return parseInt(localStorage.getItem('bf_sess_' + mesaAtiva) || '0', 10);
+  const d = new Date(); d.setHours(0, 0, 0, 0);
+  return d.getTime();
 }
 
 // Detectar modo mesa via ?mesa=TOKEN na URL
