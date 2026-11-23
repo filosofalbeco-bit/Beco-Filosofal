@@ -1256,7 +1256,7 @@ async function confirmarTransferencia() {
   try {
     const ids = Array.from(_pagPedidosSelecionados);
     const { error } = await supabase.from('mesas')
-      .update({ mesa: String(_pagDestino) })
+      .update({ mesa: String(_pagDestino), ts: Date.now() })
       .in('id', ids);
     if (error) throw error;
     fecharModalPag();
