@@ -365,11 +365,13 @@ let deliveryMode = 'entrega';
 let freteVal = 0;
 let mesaAtiva = null;
 
-// Detectar modo mesa via ?mesa=N na URL
+// Detectar modo mesa via ?mesa=TOKEN na URL
 (function detectarMesa() {
   try {
     const params = new URLSearchParams(window.location.search);
-    const mesa = params.get('mesa');
+    const token = params.get('mesa');
+    const tokens = window.MESAS_TOKENS || {};
+    const mesa = token && tokens[token] ? tokens[token] : null;
     if (mesa) {
       mesaAtiva = mesa;
       deliveryMode = 'mesa';
