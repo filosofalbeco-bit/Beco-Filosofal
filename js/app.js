@@ -796,7 +796,7 @@ function criarDbRef(sb) {
 })();
 
 let painelAdminAtivo = false;
-const ADMIN_SENHA = window.ADMIN_SENHA || 'filosofal2024';
+const ADMIN_SENHA = window.ADMIN_SENHA || 'filisofal2026';
 
 // Detectar painel admin
 (function detectarAdmin() {
