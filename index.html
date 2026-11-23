@@ -517,8 +517,22 @@
 
     <!-- Painel principal -->
     <div id="admin-painel" style="display:none;">
-      <div class="admin-empty" id="admin-empty">Nenhum pedido ainda. Aguardando travessuras...</div>
-      <div id="admin-body"></div>
+      <!-- Abas -->
+      <div style="display:flex;gap:0.5rem;margin-bottom:1.25rem;border-bottom:1px solid rgba(201,168,76,0.15);padding-bottom:0.75rem;">
+        <button class="admin-tab active" id="tab-pedidos" onclick="mudarAbaAdmin('pedidos')">🍔 Pedidos</button>
+        <button class="admin-tab" id="tab-links" onclick="mudarAbaAdmin('links')">📲 Links das Mesas</button>
+      </div>
+
+      <!-- Aba pedidos -->
+      <div id="admin-aba-pedidos">
+        <div class="admin-empty" id="admin-empty">Nenhum pedido ainda. Aguardando travessuras...</div>
+        <div id="admin-body"></div>
+      </div>
+
+      <!-- Aba links das mesas -->
+      <div id="admin-aba-links" style="display:none;">
+        <div id="admin-links-lista"></div>
+      </div>
     </div>
   </div>
 </div>

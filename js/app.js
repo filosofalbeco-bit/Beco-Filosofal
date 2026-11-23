@@ -903,6 +903,54 @@ function fecharAdmin() {
   document.body.style.overflow = '';
 }
 
+function mudarAbaAdmin(aba) {
+  document.getElementById('admin-aba-pedidos').style.display = aba === 'pedidos' ? 'block' : 'none';
+  document.getElementById('admin-aba-links').style.display   = aba === 'links'   ? 'block' : 'none';
+  document.getElementById('tab-pedidos').classList.toggle('active', aba === 'pedidos');
+  document.getElementById('tab-links').classList.toggle('active',   aba === 'links');
+  if (aba === 'links') renderizarLinksAdmin();
+}
+
+function renderizarLinksAdmin() {
+  const tokens = window.MESAS_TOKENS || {};
+  const base   = window.location.origin;
+  // Inverter mapa {token: num} → {num: token}
+  const porMesa = {};
+  Object.entries(tokens).forEach(([tok, num]) => { porMesa[num] = tok; });
+  const nums = Object.keys(porMesa).sort((a, b) => Number(a) - Number(b));
+
+  const lista = document.getElementById('admin-links-lista');
+  if (nums.length === 0) {
+    lista.innerHTML = '<div class="admin-empty">Tokens não encontrados.<br>Verifique a variável MESA_SECRET na Vercel.</div>';
+    return;
+  }
+
+  lista.innerHTML = nums.map(num => {
+    const url = `${base}/?mesa=${porMesa[num]}`;
+    return `
+      <div class="mesa-link-row">
+        <span class="mesa-link-num">Mesa ${String(num).padStart(2,'0')}</span>
+        <span class="mesa-link-url" title="${url}">${url}</span>
+        <button class="mesa-link-copy" onclick="copiarLink(this,'${url}')">Copiar</button>
+      </div>
+    `;
+  }).join('');
+}
+
+function copiarLink(btn, url) {
+  navigator.clipboard.writeText(url).then(() => {
+    btn.textContent = '✓ Copiado';
+    setTimeout(() => { btn.textContent = 'Copiar'; }, 2000);
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = url; ta.style.cssText = 'position:fixed;opacity:0;';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    btn.textContent = '✓ Copiado';
+    setTimeout(() => { btn.textContent = 'Copiar'; }, 2000);
+  });
+}
+
 function fecharCozinha() {
   document.getElementById('cozinha-overlay').classList.remove('open');
   document.body.style.overflow = '';

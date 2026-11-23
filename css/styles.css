@@ -350,6 +350,39 @@
 .btn-entregar:hover { background: linear-gradient(135deg, #2d8a40, #3daa52); }
 .btn-entregar.entregue { background: rgba(45,138,64,0.2); border: 1px solid #2d8a40; color: #3daa52; cursor: default; }
 .admin-empty { padding: 3rem; text-align: center; color: var(--fg-muted); font-family: var(--font-scroll); font-style: italic; }
+
+/* Abas do painel admin */
+.admin-tab {
+  background: none; border: 1px solid rgba(201,168,76,0.2);
+  border-radius: var(--radius); padding: 0.45rem 1rem;
+  font-family: var(--font-heading); font-size: 0.75rem;
+  color: var(--fg-muted); cursor: pointer; transition: all 0.2s;
+}
+.admin-tab.active { border-color: var(--gold); color: var(--gold); background: rgba(201,168,76,0.08); }
+.admin-tab:hover:not(.active) { border-color: var(--gold-dark); color: var(--fg); }
+
+/* Links das mesas */
+.mesa-link-row {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.75rem 0; border-bottom: 1px solid rgba(201,168,76,0.08);
+}
+.mesa-link-num {
+  font-family: var(--font-heading); font-size: 0.82rem;
+  color: var(--gold); min-width: 56px;
+}
+.mesa-link-url {
+  flex: 1; font-size: 0.72rem; color: var(--fg-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-family: monospace;
+}
+.mesa-link-copy {
+  background: rgba(201,168,76,0.1); border: 1px solid var(--gold-dark);
+  color: var(--gold); border-radius: var(--radius);
+  padding: 0.3rem 0.7rem; font-size: 0.72rem; font-family: var(--font-heading);
+  cursor: pointer; white-space: nowrap; transition: all 0.2s; flex-shrink: 0;
+}
+.mesa-link-copy:hover { background: rgba(201,168,76,0.2); }
+
 .admin-senha-box {
   max-width: 380px; margin: 10vh auto 0;
   background: var(--card-bg); border: 1px solid var(--card-border);
