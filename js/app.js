@@ -522,10 +522,16 @@ async function confirmarPedidoMesa(total) {
   };
 
   // Salvar no Supabase
-  if (dbRef) {
-    try {
-      await dbRef.collection('mesas').doc(codigo).set(pedido);
-    } catch(e) { console.warn('DB save failed', e); }
+  if (!dbRef) {
+    mostrarToast('⚠️ Banco não conectado. Tente novamente em instantes.');
+    return;
+  }
+  try {
+    await dbRef.collection('mesas').doc(codigo).set(pedido);
+  } catch(e) {
+    console.error('DB save failed', e);
+    mostrarToast('❌ Erro ao enviar pedido: ' + (e?.message || e?.code || 'tente novamente'));
+    return;
   }
 
   // Limpar carrinho
