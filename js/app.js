@@ -517,7 +517,6 @@ async function confirmarPedidoMesa(total) {
     itens: Object.values(cart).map(i => ({ name: i.name, qty: i.qty, price: i.price })),
     total,
     obs,
-    tipo: 'mesa',
     status: 'pendente',
     ts: Date.now()
   };
