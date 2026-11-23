@@ -1127,11 +1127,11 @@ async function marcarEntregueGarcom(pedidoId, btn) {
   }
 }
 
-// --- FECHAR CONTA / PAGAMENTO ---
-let _pagMesa = null, _pagForma = null, _pagTotal = 0;
+// --- DETALHE DE MESA / FECHAR CONTA / TRANSFERIR ---
+let _pagMesa = null, _pagForma = null, _pagTotal = 0, _pagDestino = null;
 
 async function abrirFecharConta(mesa) {
-  _pagMesa = mesa; _pagForma = null;
+  _pagMesa = mesa; _pagForma = null; _pagDestino = null;
   const isMesaNum = (m) => !isNaN(parseInt(m));
   const mesaLabel = isMesaNum(mesa) ? `Mesa ${mesa}` : mesa === 'ENTREGA' ? 'Entrega' : 'Retirada';
 
@@ -1143,27 +1143,102 @@ async function abrirFecharConta(mesa) {
   const total = pedidos.reduce((s, p) => s + (p.total||0), 0);
   _pagTotal = total;
 
-  const allItens = {};
-  pedidos.forEach(p => (p.itens||[]).forEach(i => {
-    if (!allItens[i.name]) allItens[i.name] = 0;
-    allItens[i.name] += i.qty;
-  }));
+  // Agrupar itens por pedido (mostrar detalhado por pedido)
+  let itensHtml = '';
+  pedidos.forEach(p => {
+    const statusIcon = p.status === 'entregue' ? '✓' : p.status === 'pronto' ? '🔔' : p.status === 'preparando' ? '🔥' : '⏳';
+    const hora = new Date(p.ts).toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+    itensHtml += `<div style="margin-bottom:0.5rem;padding-bottom:0.5rem;border-bottom:1px solid rgba(201,168,76,0.08);">`;
+    itensHtml += `<div style="font-size:0.68rem;color:var(--fg-muted);margin-bottom:0.2rem;">${statusIcon} ${hora} · R$ ${p.total.toFixed(2).replace('.',',')}</div>`;
+    itensHtml += p.itens.map(i => `<div>${i.qty}× ${i.name}</div>`).join('');
+    if (p.obs) itensHtml += `<div style="color:var(--candle);font-size:0.72rem;">📝 ${p.obs}</div>`;
+    itensHtml += `</div>`;
+  });
+  if (!itensHtml) itensHtml = '<div style="color:var(--fg-muted)">Nenhum item hoje.</div>';
 
-  document.getElementById('pag-mesa-label').textContent = mesaLabel;
-  document.getElementById('pag-itens').innerHTML = Object.entries(allItens)
-    .map(([name, qty]) => `${qty}× ${name}`).join('<br>');
+  document.getElementById('pag-modal-titulo').textContent = `🪄 ${mesaLabel}`;
+  document.getElementById('pag-mesa-label').textContent = `${pedidos.length} pedido${pedidos.length !== 1 ? 's' : ''} hoje`;
+  document.getElementById('pag-itens').innerHTML = itensHtml;
   document.getElementById('pag-total-val').textContent = `R$ ${total.toFixed(2).replace('.',',')}`;
+
+  // Reset seções
+  document.getElementById('pag-secao-fechar').style.display    = 'none';
+  document.getElementById('pag-secao-transferir').style.display = 'none';
+  document.getElementById('pag-acoes').style.display            = 'flex';
   document.getElementById('btn-confirmar-pag').disabled = true;
   document.getElementById('btn-confirmar-pag').style.opacity = '0.5';
+  document.getElementById('btn-confirmar-pag').textContent = '✓ Confirmar Pagamento';
   document.getElementById('pag-pix-info').style.display = 'none';
   document.querySelectorAll('.btn-forma').forEach(b => b.classList.remove('selected'));
+  if (window.PIX_CHAVE) document.getElementById('pag-pix-chave').textContent = window.PIX_CHAVE;
 
-  if (window.PIX_CHAVE) {
-    document.getElementById('pag-pix-chave').textContent = window.PIX_CHAVE;
+  document.getElementById('pag-modal').style.display = 'flex';
+}
+
+function mostrarSecaoFechar() {
+  document.getElementById('pag-acoes').style.display            = 'none';
+  document.getElementById('pag-secao-fechar').style.display     = 'block';
+  document.getElementById('pag-secao-transferir').style.display = 'none';
+}
+
+function mostrarSecaoTransferir() {
+  document.getElementById('pag-acoes').style.display            = 'none';
+  document.getElementById('pag-secao-fechar').style.display     = 'none';
+  document.getElementById('pag-secao-transferir').style.display = 'block';
+  _pagDestino = null;
+
+  const numMesas = parseInt(localStorage.getItem('bf_num_mesas') || String(window.NUM_MESAS_PADRAO || 20), 10);
+  const picker = document.getElementById('pag-mesa-picker');
+  let html = '';
+  for (let i = 1; i <= numMesas; i++) {
+    if (String(i) === String(_pagMesa)) continue; // não pode transferir para a mesma mesa
+    html += `<div class="mesa-pick-btn" id="mpick-${i}" onclick="selecionarMesaDestino(${i})"
+      style="padding:0.5rem;text-align:center;border:1px solid rgba(201,168,76,0.18);border-radius:calc(var(--radius)-2px);cursor:pointer;font-family:var(--font-heading);font-size:0.78rem;color:var(--fg);transition:all 0.15s;">
+      ${i}
+    </div>`;
   }
+  picker.innerHTML = html;
 
-  const modal = document.getElementById('pag-modal');
-  modal.style.display = 'flex';
+  const btnT = document.getElementById('btn-confirmar-transferir');
+  btnT.disabled = true; btnT.style.opacity = '0.5';
+}
+
+function selecionarMesaDestino(num) {
+  _pagDestino = num;
+  document.querySelectorAll('.mesa-pick-btn').forEach(b => {
+    b.style.background = '';
+    b.style.borderColor = 'rgba(201,168,76,0.18)';
+    b.style.color = 'var(--fg)';
+  });
+  const sel = document.getElementById(`mpick-${num}`);
+  if (sel) {
+    sel.style.background    = 'rgba(201,168,76,0.2)';
+    sel.style.borderColor   = 'var(--gold)';
+    sel.style.color         = 'var(--gold)';
+  }
+  const btn = document.getElementById('btn-confirmar-transferir');
+  btn.disabled = false; btn.style.opacity = '1';
+}
+
+async function confirmarTransferencia() {
+  if (!_pagMesa || !_pagDestino) return;
+  const btn = document.getElementById('btn-confirmar-transferir');
+  btn.disabled = true; btn.textContent = '...';
+  try {
+    const { error } = await supabase.from('mesas')
+      .update({ mesa: String(_pagDestino) })
+      .eq('mesa', String(_pagMesa))
+      .in('status', ['pendente', 'preparando', 'pronto']);
+    if (error) throw error;
+    fecharModalPag();
+    mostrarToast(`✓ Mesa ${_pagMesa} transferida para Mesa ${_pagDestino}`);
+    renderizarMapaMesas();
+    renderizarGarcom();
+  } catch(e) {
+    console.warn('Transferencia failed', e);
+    btn.disabled = false; btn.textContent = '🔀 Confirmar Transferência';
+    mostrarToast('❌ Erro ao transferir: ' + (e?.message || 'tente novamente'));
+  }
 }
 
 function selecionarFormaPag(forma) {
@@ -1185,45 +1260,34 @@ async function confirmarPagamentoGarcom() {
   if (!_pagMesa || !_pagForma) return;
   const btn = document.getElementById('btn-confirmar-pag');
   btn.disabled = true; btn.textContent = '...';
-
   try {
     const agora = new Date();
     const tsBrasilia = agora.toLocaleString('pt-BR', {timeZone:'America/Sao_Paulo'});
     const ts = agora.getTime();
-
-    // Registrar pagamento (requer tabela pagamentos no Supabase)
     if (supabase) {
       await supabase.from('pagamentos').insert({
         id: 'pag-' + Math.random().toString(36).substring(2,10),
-        mesa: _pagMesa,
-        total: _pagTotal,
-        forma: _pagForma,
-        responsavel: 'garçom',
-        ts,
-        ts_brasilia: tsBrasilia
+        mesa: _pagMesa, total: _pagTotal, forma: _pagForma,
+        responsavel: 'garçom', ts, ts_brasilia: tsBrasilia
       });
     }
-
-    // Marcar todos os pedidos ativos da mesa como entregue
     await supabase.from('mesas').update({ status: 'entregue' })
       .eq('mesa', _pagMesa)
       .in('status', ['pendente', 'preparando', 'pronto']);
-
     fecharModalPag();
     mostrarToast('✓ Pagamento registrado!');
     renderizarMapaMesas();
     renderizarGarcom();
   } catch(e) {
     console.warn('Pagamento failed', e);
-    btn.disabled = false;
-    btn.textContent = '✓ Confirmar Pagamento';
+    btn.disabled = false; btn.textContent = '✓ Confirmar Pagamento';
     mostrarToast('❌ Erro ao registrar pagamento: ' + (e?.message || 'tente novamente'));
   }
 }
 
 function fecharModalPag() {
   document.getElementById('pag-modal').style.display = 'none';
-  _pagMesa = null; _pagForma = null; _pagTotal = 0;
+  _pagMesa = null; _pagForma = null; _pagTotal = 0; _pagDestino = null;
 }
 
 // --- KANBAN HELPERS ---
