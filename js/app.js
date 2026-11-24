@@ -526,10 +526,14 @@ async function confirmarPedidoMesa(total) {
   const obs = (document.getElementById('obs-input') || {}).value || '';
   const ts  = Date.now();
 
+  // Garantir destinos atualizados antes de dividir
+  await carregarCardapioDB();
+
   // Agrupar itens por destino (padrão: cozinha)
   const itensPorDestino = {};
   Object.values(cart).forEach(i => {
     const dest = CARDAPIO_DINAMICO[i.id]?.destino || 'cozinha';
+    console.log('[destino]', i.id, '->', dest, '| CARDAPIO_DINAMICO:', CARDAPIO_DINAMICO[i.id]);
     if (!itensPorDestino[dest]) itensPorDestino[dest] = [];
     itensPorDestino[dest].push({ name: i.name, qty: i.qty, price: i.price });
   });
