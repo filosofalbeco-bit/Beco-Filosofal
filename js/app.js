@@ -1720,7 +1720,7 @@ function mostrarAjudaAdmin() {
         <div style="font-family:var(--font-heading);font-size:0.68rem;color:var(--gold-dark);margin-bottom:0.3rem;">SENHAS DOS PAINÉIS</div>
         <p style="color:var(--fg-muted);">Configure em: Supabase → Edge Functions → auth-painel → Secrets<br>
         Variáveis: <code>SENHA_COZINHA</code> · <code>SENHA_GARCOM</code> · <code>SENHA_GESTAO</code><br>
-        Padrões atuais: <code>cozinha@beco2026</code> / <code>garcom@beco2026</code> / <code>gestao@beco2026</code></p>
+        Sem configuração: usa valores padrão definidos na edge function.</p>
         <div style="font-family:var(--font-heading);font-size:0.68rem;color:var(--gold-dark);margin:0.75rem 0 0.3rem;">PIX</div>
         <p style="color:var(--fg-muted);">Configure em: Vercel → Settings → Environment Variables<br>
         <code>PIX_CHAVE</code> · <code>PIX_NOME</code> · <code>PIX_CIDADE</code></p>
