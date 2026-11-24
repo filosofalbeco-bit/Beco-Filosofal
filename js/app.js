@@ -274,7 +274,7 @@ function changeQty(btn, delta) {
   if (qty === 0) {
     delete cart[id];
   } else {
-    cart[id] = { name, price, qty };
+    cart[id] = { id, name, price, qty };
   }
   atualizarCarrinho();
 }
