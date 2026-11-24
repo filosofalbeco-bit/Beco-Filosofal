@@ -2836,10 +2836,29 @@ async function renderizarStatusPainel() {
 
   try {
     // Filtra pedidos desta mesa e desta sessão (evita mistura com cliente anterior)
-    const { data: rawPeds, error: errStatus } = await supabase.from('mesas').select('*')
-      .eq('mesa', mesaAtiva).gte('ts', sessaoMesaInicio()).order('ts', {ascending:true});
+    const sessInicio = sessaoMesaInicio();
+    const [{ data: rawPeds, error: errStatus }, { data: rawPags }] = await Promise.all([
+      supabase.from('mesas').select('*').eq('mesa', mesaAtiva).gte('ts', sessInicio).order('ts', {ascending:true}),
+      supabase.from('pagamentos').select('ts,total').eq('mesa', mesaAtiva).gte('ts', sessInicio).limit(1)
+    ]);
     if (errStatus) throw errStatus;
     const pedidos = rawPeds || [];
+
+    // Conta foi fechada pelo garçom → mostrar tela de encerramento
+    if ((rawPags || []).length > 0) {
+      localStorage.removeItem('bf_sess_' + mesaAtiva);
+      const pag = rawPags[0];
+      const totalPago = pag.total ? `R$ ${pag.total.toFixed(2).replace('.', ',')}` : '';
+      body.innerHTML = `
+        <div style="text-align:center;padding:2.5rem 1rem;">
+          <div style="font-size:2.5rem;margin-bottom:0.75rem;">✅</div>
+          <div style="font-family:var(--font-heading);font-size:1.1rem;color:var(--gold);margin-bottom:0.5rem;">Conta encerrada!</div>
+          <div style="font-size:0.82rem;color:var(--fg-muted);margin-bottom:0.25rem;">Pagamento confirmado${totalPago ? ' — ' + totalPago : ''}.</div>
+          <div style="font-size:0.78rem;color:var(--fg-muted);font-family:var(--font-scroll);font-style:italic;margin-top:1rem;">Obrigado pela visita ao Beco FilosoFal! 🧙</div>
+        </div>`;
+      atualizarBadgeStatus([]);
+      return;
+    }
 
     if (pedidos.length === 0) {
       body.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--fg-muted);font-family:var(--font-scroll);font-style:italic;">Nenhum pedido enviado ainda.</div>';
