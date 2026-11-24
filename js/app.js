@@ -1285,10 +1285,15 @@ async function renderizarMapaMesas() {
     const startOfDay = new Date(); startOfDay.setHours(0,0,0,0);
     const [{ data: pedidosData }, { data: pagsData }] = await Promise.all([
       supabase.from('mesas').select('*').gte('ts', startOfDay.getTime()).order('ts', { ascending: true }),
-      supabase.from('pagamentos').select('mesa').gte('ts', startOfDay.getTime())
+      supabase.from('pagamentos').select('mesa,ts').gte('ts', startOfDay.getTime())
     ]);
-    const pedidos    = pedidosData || [];
-    const mesasPagas = new Set((pagsData || []).map(p => String(p.mesa)));
+    const pedidos = pedidosData || [];
+    // Para cada mesa, guarda o ts do último pagamento (pode haver múltiplas sessões no dia)
+    const ultimoPagTs = {};
+    (pagsData || []).forEach(p => {
+      const m = String(p.mesa);
+      if (!ultimoPagTs[m] || p.ts > ultimoPagTs[m]) ultimoPagTs[m] = p.ts;
+    });
 
     const btnNovo = `<button onclick="abrirNovoPedidoGarcom()"
       style="width:100%;padding:0.65rem;background:linear-gradient(135deg,rgba(45,138,64,0.2),rgba(45,138,64,0.35));border:1px solid #2d8a40;border-radius:var(--radius);color:#3daa52;font-family:var(--font-heading);font-size:0.82rem;cursor:pointer;letter-spacing:0.03em;margin-bottom:1rem;">
@@ -1310,8 +1315,12 @@ async function renderizarMapaMesas() {
     const mesaLabel = (m) => isMesaNum(m) ? `Mesa ${m}` : m === 'ENTREGA' ? 'Entrega' : 'Retirada';
     const mesaIcon  = (m) => isMesaNum(m) ? '🪄' : m === 'ENTREGA' ? '🚴' : '🏃';
 
+    // Mostra mesa somente se tiver pedidos mais novos que o último pagamento
     const cards = Object.entries(porMesa)
-      .filter(([mesa, _]) => !mesasPagas.has(String(mesa)))
+      .filter(([mesa, peds]) => {
+        const lastPag = ultimoPagTs[String(mesa)] || 0;
+        return peds.some(p => p.ts > lastPag);
+      })
       .sort((a,b) => {
         const aPronto = a[1].some(p => p.status === 'pronto');
         const bPronto = b[1].some(p => p.status === 'pronto');
@@ -1616,17 +1625,29 @@ async function renderizarGarcomGestao() {
     const startOfDay = new Date(); startOfDay.setHours(0,0,0,0);
     const [{ data: pedidosData }, { data: pagsData }] = await Promise.all([
       supabase.from('mesas').select('*').gte('ts', startOfDay.getTime()).order('ts', { ascending: true }),
-      supabase.from('pagamentos').select('mesa').gte('ts', startOfDay.getTime())
+      supabase.from('pagamentos').select('mesa,ts').gte('ts', startOfDay.getTime())
     ]);
-    const pedidos    = pedidosData || [];
-    const mesasPagas = new Set((pagsData || []).map(p => String(p.mesa)));
+    const pedidos = pedidosData || [];
+    const ultimoPagTs = {};
+    (pagsData || []).forEach(p => {
+      const m = String(p.mesa);
+      if (!ultimoPagTs[m] || p.ts > ultimoPagTs[m]) ultimoPagTs[m] = p.ts;
+    });
+    const mesaFechada = (mesa, peds) => {
+      const lastPag = ultimoPagTs[String(mesa)] || 0;
+      return !peds.some(p => p.ts > lastPag);
+    };
 
     const isMesaNum = m => !isNaN(parseInt(m));
     const mesaLabel = m => isMesaNum(m) ? `Mesa ${m}` : m === 'ENTREGA' ? 'Entrega' : 'Retirada';
     const mesaIcon  = m => isMesaNum(m) ? '🪄' : m === 'ENTREGA' ? '🚴' : '🏃';
 
-    // Kanban: só pedidos de mesa (não ENTREGA/RETIRADA) e ainda não pagas
-    const mesaPeds  = pedidos.filter(p => isMesaNum(p.mesa) && !mesasPagas.has(String(p.mesa)));
+    // Kanban: só pedidos de mesa ativos (posteriores ao último pagamento)
+    const mesaPeds = pedidos.filter(p => {
+      if (!isMesaNum(p.mesa)) return false;
+      const lastPag = ultimoPagTs[String(p.mesa)] || 0;
+      return p.ts > lastPag;
+    });
     const emPreparo = mesaPeds.filter(p => ['pendente','preparando'].includes(p.status));
     const prontos   = mesaPeds.filter(p => p.status === 'pronto');
 
@@ -1653,7 +1674,7 @@ async function renderizarGarcomGestao() {
     pedidos.forEach(p => { if (!porMesa[p.mesa]) porMesa[p.mesa] = []; porMesa[p.mesa].push(p); });
 
     const ativasPorMesa = Object.entries(porMesa)
-      .filter(([mesa, _]) => !mesasPagas.has(String(mesa)))
+      .filter(([mesa, peds]) => !mesaFechada(mesa, peds))
       .sort((a, b) => {
         const aPronto = a[1].some(p => p.status === 'pronto');
         const bPronto = b[1].some(p => p.status === 'pronto');
@@ -2842,7 +2863,7 @@ async function renderizarStatusPainel() {
     const sessInicio = sessaoMesaInicio();
     const [{ data: rawPeds, error: errStatus }, { data: rawPags }] = await Promise.all([
       supabase.from('mesas').select('*').eq('mesa', mesaAtiva).gte('ts', sessInicio).order('ts', {ascending:true}),
-      supabase.from('pagamentos').select('ts,total').eq('mesa', mesaAtiva).gte('ts', sessInicio).limit(1)
+      supabase.from('pagamentos').select('ts,total').eq('mesa', mesaAtiva).gte('ts', sessInicio).order('ts', {ascending:false}).limit(1)
     ]);
     if (errStatus) throw errStatus;
     const pedidos = rawPeds || [];
