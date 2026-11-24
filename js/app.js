@@ -1695,6 +1695,10 @@ async function renderizarStatusPainel() {
       return;
     }
 
+    const totalGeral = pedidos.reduce((s, p) => s + (p.total || 0), 0);
+    const pendentes  = pedidos.filter(p => p.status !== 'entregue').length;
+    const tudoEntregue = pendentes === 0;
+
     body.innerHTML = pedidos.map(p => {
       const isPrep = p.status === 'pendente' || p.status === 'preparando';
       return `
@@ -1708,7 +1712,18 @@ async function renderizarStatusPainel() {
         <div class="status-item-itens">${p.itens.map(i => `${i.name} ×${i.qty}`).join(' · ')}</div>
         <div class="status-item-meta">R$ ${p.total.toFixed(2).replace('.', ',')}${p.obs ? ' · ' + p.obs : ''}</div>
       </div>`;
-    }).join('');
+    }).join('') + `
+      <div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid rgba(201,168,76,0.2);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+          <span style="font-family:var(--font-heading);font-size:0.78rem;color:var(--fg-muted);">Total consumido</span>
+          <span style="font-family:var(--font-heading);font-size:1rem;color:var(--gold);">R$ ${totalGeral.toFixed(2).replace('.', ',')}</span>
+        </div>
+        ${!tudoEntregue ? `<div style="font-size:0.72rem;color:var(--fg-muted);text-align:center;margin-bottom:0.75rem;">⏳ Aguardando todos os itens serem entregues...</div>` : ''}
+        <button onclick="encerrarConta()" ${tudoEntregue ? '' : 'disabled'}
+          style="width:100%;padding:0.85rem;border:none;border-radius:var(--radius);background:${tudoEntregue ? 'linear-gradient(135deg,#1a4a1a,#2d6a2d)' : 'rgba(201,168,76,0.08)'};color:${tudoEntregue ? '#fff' : 'var(--fg-muted)'};font-family:var(--font-heading);font-size:0.9rem;cursor:${tudoEntregue ? 'pointer' : 'not-allowed'};letter-spacing:0.05em;">
+          🧾 Encerrar Conta
+        </button>
+      </div>`;
 
     atualizarBadgeStatus(pedidos);
   } catch(e) {
