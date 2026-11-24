@@ -137,7 +137,16 @@ function drawStars(t) {
 
 initStars();
 requestAnimationFrame(drawStars);
-window.addEventListener('resize', initStars);
+// Debounce: evita flash no canvas ao rolar no mobile (address bar hide/show dispara resize)
+let _resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(() => {
+    if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
+      initStars();
+    }
+  }, 200);
+});
 
 // =====================================================
 // MAPA DO MAROTO — REVELAR CARDÁPIO
@@ -3016,6 +3025,7 @@ function iniciarPollingStatus() {
    CARDÁPIO — Dados e renderização
    ===================================================== */
 let CARDAPIO_DINAMICO = {}; // id → { destino } — pré-populado do estático, atualizado pelo banco
+let _cardapioDBCarregado = false; // DOM só é atualizado na primeira carga
 
 async function carregarCardapioDB() {
   if (!supabase) return;
@@ -3025,7 +3035,12 @@ async function carregarCardapioDB() {
       data.forEach(item => {
         CARDAPIO_DINAMICO[item.id] = { destino: item.destino, ativo: item.ativo !== false, nome: item.nome, preco: item.preco, descricao: item.descricao, foto_url: item.foto_url, opcoes: item.opcoes || [] };
       });
-      atualizarCardapioDom(data);
+      // Atualiza o DOM apenas uma vez para evitar reflow/piscada em chamadas subsequentes
+      // (ex: confirmarPedidoMesa chama esta função só para atualizar CARDAPIO_DINAMICO)
+      if (!_cardapioDBCarregado) {
+        _cardapioDBCarregado = true;
+        atualizarCardapioDom(data);
+      }
     }
   } catch(e) {
     console.warn('carregarCardapioDB failed', e);
@@ -3265,7 +3280,8 @@ async function salvarItemCardapio(id) {
     mostrarToast('✓ Item atualizado');
     cancelarEdicaoCardapio(id);
     renderizarCardapioAdmin();
-    carregarCardapioDB(); // atualiza cardápio do cliente
+    _cardapioDBCarregado = false; // força atualização do DOM do cliente
+    carregarCardapioDB();
   } catch(e) {
     mostrarToast('❌ Erro ao salvar: ' + (e?.message || ''));
   }
@@ -3277,6 +3293,7 @@ async function toggleAtivoCardapio(id, estaAtivo) {
     if (error) throw error;
     mostrarToast(novoAtivo ? '✓ Item disponível' : '⊘ Item marcado como esgotado');
     renderizarCardapioAdmin();
+    _cardapioDBCarregado = false; // força atualização do DOM do cliente
     carregarCardapioDB();
   } catch(e) {
     mostrarToast('❌ Erro: ' + (e?.message || ''));
