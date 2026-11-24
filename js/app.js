@@ -299,19 +299,76 @@ const ZONAS = [
 function changeQty(btn, delta) {
   const item = btn.closest('.scroll-item');
   if (!item || !item.dataset.id) return;
-  const id   = item.dataset.id;
-  const name = item.dataset.name;
+  const id    = item.dataset.id;
+  const name  = item.dataset.name;
   const price = parseFloat(item.dataset.price);
+  const opcoes = CARDAPIO_DINAMICO[id]?.opcoes || [];
+
+  if (opcoes.length > 0) {
+    if (delta > 0) { abrirPickerOpcao(id, name, price, opcoes, item); return; }
+    removerItemComOpcao(id, item);
+    return;
+  }
+
   const numEl = item.querySelector('.qty-num');
   let qty = parseInt(numEl.textContent) + delta;
   if (qty < 0) qty = 0;
   numEl.textContent = qty;
-  if (qty === 0) {
-    delete cart[id];
-  } else {
-    cart[id] = { id, name, price, qty };
-  }
+  if (qty === 0) { delete cart[id]; } else { cart[id] = { id, name, price, qty }; }
   atualizarCarrinho();
+}
+
+function abrirPickerOpcao(id, name, price, opcoes, itemEl) {
+  document.getElementById('opcao-picker')?.remove();
+  const rect = itemEl.getBoundingClientRect();
+  const btns = opcoes.map(op =>
+    `<button onclick="addItemComOpcao('${id}','${name.replace(/'/g,"\\'")}',${price},'${op.replace(/'/g,"\\'")}')"
+      style="display:block;width:100%;text-align:left;padding:0.5rem 0.75rem;background:none;border:none;border-bottom:1px solid rgba(255,255,255,0.07);color:var(--text);cursor:pointer;font-size:0.9rem;"
+      onmouseover="this.style.background='rgba(201,168,76,0.12)'" onmouseout="this.style.background='none'">
+      ${op}
+    </button>`).join('');
+  const div = document.createElement('div');
+  div.id = 'opcao-picker';
+  div.style.cssText = `position:fixed;z-index:8000;background:var(--bg-card);border:1px solid var(--accent);border-radius:var(--radius);min-width:160px;box-shadow:0 8px 24px rgba(0,0,0,0.5);overflow:hidden;`;
+  div.innerHTML = `<div style="padding:0.4rem 0.75rem;font-size:0.72rem;color:var(--text-muted);border-bottom:1px solid rgba(255,255,255,0.1);">Escolha uma opção</div>${btns}`;
+  document.body.appendChild(div);
+  // position below the item
+  const top  = Math.min(rect.bottom + 4, window.innerHeight - div.offsetHeight - 8);
+  const left = Math.min(rect.left, window.innerWidth - 180);
+  div.style.top  = top  + 'px';
+  div.style.left = left + 'px';
+  setTimeout(() => document.addEventListener('click', function h(e) {
+    if (!div.contains(e.target)) { div.remove(); document.removeEventListener('click', h); }
+  }), 50);
+}
+
+function addItemComOpcao(id, name, price, opcao) {
+  document.getElementById('opcao-picker')?.remove();
+  const key = id + ':' + opcao;
+  if (!cart[key]) cart[key] = { id, name, opcao, price, qty: 0 };
+  cart[key].qty++;
+  _syncScrollItemQty(id);
+  atualizarCarrinho();
+}
+
+function removerItemComOpcao(id, itemEl) {
+  const keys = Object.keys(cart).filter(k => k.startsWith(id + ':'));
+  if (!keys.length) return;
+  const k = keys[keys.length - 1];
+  cart[k].qty--;
+  if (cart[k].qty <= 0) delete cart[k];
+  _syncScrollItemQty(id);
+  atualizarCarrinho();
+}
+
+function _syncScrollItemQty(id) {
+  const el = document.querySelector(`.scroll-item[data-id="${id}"]`);
+  if (!el) return;
+  const total = Object.entries(cart)
+    .filter(([k]) => k === id || k.startsWith(id + ':'))
+    .reduce((s, [, v]) => s + v.qty, 0);
+  const n = el.querySelector('.qty-num');
+  if (n) n.textContent = total;
 }
 
 function atualizarCarrinho() {
@@ -369,7 +426,7 @@ function renderCartItems() {
   container.innerHTML = items.map(([id, it]) => `
     <div class="cart-item">
       <div class="cart-item-info">
-        <div class="cart-item-name">${it.name}</div>
+        <div class="cart-item-name">${it.name}${it.opcao ? `<span class="cart-item-opcao"> — ${it.opcao}</span>` : ''}</div>
         <div class="cart-item-price">R$ ${it.price.toFixed(2).replace('.',',')}</div>
       </div>
       <div class="cart-item-qty">
@@ -387,12 +444,8 @@ function changeCartQty(id, delta) {
   if (!cart[id]) return;
   cart[id].qty += delta;
   if (cart[id].qty <= 0) delete cart[id];
-  // sincronizar com os botões no cardápio
-  const itemEl = document.querySelector(`.scroll-item[data-id="${id}"]`);
-  if (itemEl) {
-    const numEl = itemEl.querySelector('.qty-num');
-    if (numEl) numEl.textContent = cart[id] ? cart[id].qty : 0;
-  }
+  const baseId = id.includes(':') ? id.split(':')[0] : id;
+  _syncScrollItemQty(baseId);
   atualizarCarrinho();
 }
 
@@ -568,9 +621,8 @@ async function confirmarPedidoMesa(total) {
   const itensPorDestino = {};
   Object.values(cart).forEach(i => {
     const dest = CARDAPIO_DINAMICO[i.id]?.destino || 'cozinha';
-    console.log('[destino]', i.id, '->', dest, '| CARDAPIO_DINAMICO:', CARDAPIO_DINAMICO[i.id]);
     if (!itensPorDestino[dest]) itensPorDestino[dest] = [];
-    itensPorDestino[dest].push({ name: i.name, qty: i.qty, price: i.price });
+    itensPorDestino[dest].push({ name: i.opcao ? `${i.name} (${i.opcao})` : i.name, qty: i.qty, price: i.price });
   });
 
   if (!dbRef) {
@@ -1336,16 +1388,66 @@ function fecharNovoPedidoGarcom() {
 }
 
 function changeQtyGarcom(id, name, price, delta) {
+  const opcoes = CARDAPIO_DINAMICO[id]?.opcoes || [];
+  if (opcoes.length > 0 && delta > 0) {
+    _abrirPickerOpcaoNGP(id, name, price, opcoes);
+    return;
+  }
+  if (opcoes.length > 0 && delta < 0) {
+    const keys = Object.keys(cartGarcom).filter(k => k === id || k.startsWith(id + ':'));
+    if (!keys.length) return;
+    const k = keys[keys.length - 1];
+    cartGarcom[k].qty--;
+    if (cartGarcom[k].qty <= 0) delete cartGarcom[k];
+    _syncNgpQty(id);
+    _syncNgpTotal();
+    return;
+  }
   if (!cartGarcom[id]) cartGarcom[id] = { id, name, price, qty: 0 };
   cartGarcom[id].qty = Math.max(0, cartGarcom[id].qty + delta);
   if (cartGarcom[id].qty === 0) delete cartGarcom[id];
+  _syncNgpQty(id);
+  _syncNgpTotal();
+}
 
-  const qtyEl = document.getElementById('ngp-qty-' + id);
-  if (qtyEl) qtyEl.textContent = cartGarcom[id]?.qty || 0;
+function _abrirPickerOpcaoNGP(id, name, price, opcoes) {
+  document.getElementById('ngp-opcao-picker')?.remove();
+  const btns = opcoes.map(op =>
+    `<button onclick="_addNgpComOpcao('${id}','${name.replace(/'/g,"\\'")}',${price},'${op.replace(/'/g,"\\'")}')"
+      style="display:block;width:100%;text-align:left;padding:0.5rem 0.75rem;background:none;border:none;border-bottom:1px solid rgba(255,255,255,0.07);color:var(--text);cursor:pointer;font-size:0.9rem;"
+      onmouseover="this.style.background='rgba(201,168,76,0.12)'" onmouseout="this.style.background='none'">${op}</button>`).join('');
+  const div = document.createElement('div');
+  div.id = 'ngp-opcao-picker';
+  div.style.cssText = 'position:fixed;z-index:9500;background:var(--bg-card);border:1px solid var(--accent);border-radius:var(--radius);min-width:160px;box-shadow:0 8px 24px rgba(0,0,0,0.6);overflow:hidden;top:50%;left:50%;transform:translate(-50%,-50%);';
+  div.innerHTML = `<div style="padding:0.4rem 0.75rem;font-size:0.72rem;color:var(--text-muted);border-bottom:1px solid rgba(255,255,255,0.1);">Escolha uma opção</div>${btns}`;
+  document.body.appendChild(div);
+  setTimeout(() => document.addEventListener('click', function h(e) {
+    if (!div.contains(e.target)) { div.remove(); document.removeEventListener('click', h); }
+  }), 50);
+}
 
+function _addNgpComOpcao(id, name, price, opcao) {
+  document.getElementById('ngp-opcao-picker')?.remove();
+  const key = id + ':' + opcao;
+  if (!cartGarcom[key]) cartGarcom[key] = { id, name, opcao, price, qty: 0 };
+  cartGarcom[key].qty++;
+  _syncNgpQty(id);
+  _syncNgpTotal();
+}
+
+function _syncNgpQty(id) {
+  const el = document.getElementById('ngp-qty-' + id);
+  if (!el) return;
+  const total = Object.entries(cartGarcom)
+    .filter(([k]) => k === id || k.startsWith(id + ':'))
+    .reduce((s, [, v]) => s + v.qty, 0);
+  el.textContent = total;
+}
+
+function _syncNgpTotal() {
   const total = Object.values(cartGarcom).reduce((s, i) => s + i.price * i.qty, 0);
-  const totalEl = document.getElementById('ngp-total');
-  if (totalEl) totalEl.textContent = 'R$ ' + total.toFixed(2).replace('.', ',');
+  const el = document.getElementById('ngp-total');
+  if (el) el.textContent = 'R$ ' + total.toFixed(2).replace('.', ',');
 }
 
 async function confirmarPedidoGarcomManual() {
@@ -1363,7 +1465,7 @@ async function confirmarPedidoGarcomManual() {
   Object.values(cartGarcom).forEach(i => {
     const dest = CARDAPIO_DINAMICO[i.id]?.destino || 'cozinha';
     if (!itensPorDestino[dest]) itensPorDestino[dest] = [];
-    itensPorDestino[dest].push({ name: i.name, qty: i.qty, price: i.price });
+    itensPorDestino[dest].push({ name: i.opcao ? `${i.name} (${i.opcao})` : i.name, qty: i.qty, price: i.price });
   });
 
   if (!dbRef) {
@@ -2214,7 +2316,7 @@ async function carregarCardapioDB() {
     const { data } = await supabase.from('cardapio').select('*').order('categoria').order('ordem');
     if (data) {
       data.forEach(item => {
-        CARDAPIO_DINAMICO[item.id] = { destino: item.destino, ativo: item.ativo !== false, nome: item.nome, preco: item.preco, descricao: item.descricao, foto_url: item.foto_url };
+        CARDAPIO_DINAMICO[item.id] = { destino: item.destino, ativo: item.ativo !== false, nome: item.nome, preco: item.preco, descricao: item.descricao, foto_url: item.foto_url, opcoes: item.opcoes || [] };
       });
       atualizarCardapioDom(data);
     }
@@ -2331,6 +2433,29 @@ carregarCardapioDB(); // sobrescreve com valores reais do banco
 // --- CARDÁPIO ADMIN ---
 const CATEG_LABELS = { burgers: '🍔 Burgers', acomp: '🍟 Acompanhamentos', bebidas: '🥤 Bebidas', sobremesas: '🍫 Sobremesas' };
 
+async function uploadFotoAdmin(id, input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (!supabase) { mostrarToast('⚠️ Banco não conectado.'); return; }
+  const ext  = file.name.split('.').pop().toLowerCase();
+  const fname = `${id}-${Date.now()}.${ext}`;
+  mostrarToast('⏳ Enviando foto...');
+  try {
+    const { data, error } = await supabase.storage
+      .from('cardapio-fotos')
+      .upload(fname, file, { upsert: true, contentType: file.type });
+    if (error) throw error;
+    const { data: pub } = supabase.storage.from('cardapio-fotos').getPublicUrl(fname);
+    const url = pub.publicUrl;
+    const urlInput = document.getElementById(`edit-foto-${id}`);
+    if (urlInput) urlInput.value = url;
+    mostrarToast('✓ Foto enviada! Clique em Salvar para confirmar.');
+  } catch(e) {
+    mostrarToast('❌ Erro no upload: ' + (e?.message || e));
+  }
+  input.value = '';
+}
+
 async function renderizarCardapioAdmin() {
   const body = document.getElementById('cardapio-admin-body');
   if (!body) return;
@@ -2383,9 +2508,19 @@ async function renderizarCardapioAdmin() {
               <input id="edit-desc-${item.id}" type="text" value="${(item.descricao||'').replace(/"/g,'&quot;')}"
                 style="width:100%;margin-bottom:0.4rem;padding:0.4rem;background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:4px;color:var(--fg);font-size:0.8rem;box-sizing:border-box;"
                 placeholder="Descrição">
-              <input id="edit-foto-${item.id}" type="url" value="${(item.foto_url||'').replace(/"/g,'&quot;')}"
-                style="width:100%;margin-bottom:0.6rem;padding:0.4rem;background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:4px;color:var(--fg);font-size:0.8rem;box-sizing:border-box;"
-                placeholder="URL da foto (opcional)">
+              <input id="edit-opcoes-${item.id}" type="text" value="${(item.opcoes||[]).join(', ').replace(/"/g,'&quot;')}"
+                style="width:100%;margin-bottom:0.4rem;padding:0.4rem;background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:4px;color:var(--fg);font-size:0.8rem;box-sizing:border-box;"
+                placeholder="Opções separadas por vírgula (ex: Laranja, Limão, Maracujá)">
+              <div style="display:flex;gap:0.4rem;margin-bottom:0.4rem;align-items:center;">
+                <input id="edit-foto-${item.id}" type="url" value="${(item.foto_url||'').replace(/"/g,'&quot;')}"
+                  style="flex:1;padding:0.4rem;background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:4px;color:var(--fg);font-size:0.8rem;box-sizing:border-box;"
+                  placeholder="URL da foto (opcional)">
+                <label style="cursor:pointer;padding:0.35rem 0.5rem;background:rgba(201,168,76,0.12);border:1px solid rgba(201,168,76,0.3);border-radius:4px;font-size:0.72rem;color:var(--accent);white-space:nowrap;"
+                  title="Enviar foto do computador">
+                  📷 Enviar
+                  <input type="file" accept="image/*" style="display:none" onchange="uploadFotoAdmin('${item.id}', this)">
+                </label>
+              </div>
               <div style="display:flex;gap:0.4rem;">
                 <button onclick="salvarItemCardapio('${item.id}')"
                   style="flex:1;padding:0.4rem;background:rgba(45,138,64,0.2);border:1px solid #2d8a40;border-radius:4px;color:#3daa52;font-size:0.75rem;cursor:pointer;">✓ Salvar</button>
@@ -2414,9 +2549,11 @@ async function salvarItemCardapio(id) {
   const preco    = parseFloat(document.getElementById(`edit-preco-${id}`)?.value);
   const desc     = document.getElementById(`edit-desc-${id}`)?.value?.trim();
   const foto_url = document.getElementById(`edit-foto-${id}`)?.value?.trim() || null;
+  const opcoesRaw = document.getElementById(`edit-opcoes-${id}`)?.value?.trim() || '';
+  const opcoes = opcoesRaw ? opcoesRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
   if (!nome || isNaN(preco) || preco < 0) { mostrarToast('⚠️ Preencha nome e preço válidos'); return; }
   try {
-    const { error } = await supabase.from('cardapio').update({ nome, preco, descricao: desc, foto_url }).eq('id', id);
+    const { error } = await supabase.from('cardapio').update({ nome, preco, descricao: desc, foto_url, opcoes }).eq('id', id);
     if (error) throw error;
     mostrarToast('✓ Item atualizado');
     cancelarEdicaoCardapio(id);

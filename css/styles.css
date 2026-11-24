@@ -171,6 +171,7 @@
 }
 .cart-item-info { flex: 1; min-width: 0; }
 .cart-item-name { font-family: var(--font-heading); font-size: 0.82rem; color: var(--fg); font-weight: 600; }
+.cart-item-opcao { font-size: 0.75rem; color: var(--gold); font-weight: 400; font-family: var(--font-body); }
 .cart-item-price { font-size: 0.78rem; color: var(--fg-muted); }
 .cart-item-qty { display: flex; align-items: center; gap: 0.35rem; flex-shrink: 0; }
 .cart-item-total {
