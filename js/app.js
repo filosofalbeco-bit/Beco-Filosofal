@@ -1277,19 +1277,23 @@ function abrirNovoPedidoGarcom() {
   const mesasVis = parseInt(localStorage.getItem('bf_mesas_visiveis') || '10');
 
   const itens = Object.values(CARDAPIO_DINAMICO)
-    .filter(item => item.ativo !== false)
-    .map(item => `
+    .filter(item => item.ativo !== false && item.nome && item.preco != null)
+    .map(item => {
+      const precoFmt = Number(item.preco).toFixed(2).replace('.',',');
+      const nomeEsc  = item.nome.replace(/'/g,"\\'");
+      return `
       <div class="ngp-item" id="ngp-row-${item.id}">
         <div class="ngp-item-info">
           <span class="ngp-item-nome">${item.nome}</span>
-          <span class="ngp-item-preco">R$ ${item.preco.toFixed(2).replace('.',',')}</span>
+          <span class="ngp-item-preco">R$ ${precoFmt}</span>
         </div>
         <div class="ngp-qty-ctrl">
-          <button onclick="changeQtyGarcom('${item.id}','${item.nome.replace(/'/g,"\\'")}',${item.preco},-1)">−</button>
+          <button onclick="changeQtyGarcom('${item.id}','${nomeEsc}',${item.preco},-1)">−</button>
           <span class="ngp-qty-num" id="ngp-qty-${item.id}">0</span>
-          <button onclick="changeQtyGarcom('${item.id}','${item.nome.replace(/'/g,"\\'")}',${item.preco},1)">+</button>
+          <button onclick="changeQtyGarcom('${item.id}','${nomeEsc}',${item.preco},1)">+</button>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
 
   const mesaOpts = Array.from({length: mesasVis}, (_,i) =>
     `<option value="${i+1}">Mesa ${i+1}</option>`).join('');
