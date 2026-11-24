@@ -1280,10 +1280,12 @@ async function renderizarMapaMesas() {
   }
   try {
     const startOfDay = new Date(); startOfDay.setHours(0,0,0,0);
-    const { data } = await supabase.from('mesas').select('*')
-      .gte('ts', startOfDay.getTime())
-      .order('ts', { ascending: true });
-    const pedidos = data || [];
+    const [{ data: pedidosData }, { data: pagsData }] = await Promise.all([
+      supabase.from('mesas').select('*').gte('ts', startOfDay.getTime()).order('ts', { ascending: true }),
+      supabase.from('pagamentos').select('mesa').gte('ts', startOfDay.getTime())
+    ]);
+    const pedidos    = pedidosData || [];
+    const mesasPagas = new Set((pagsData || []).map(p => String(p.mesa)));
 
     const btnNovo = `<button onclick="abrirNovoPedidoGarcom()"
       style="width:100%;padding:0.65rem;background:linear-gradient(135deg,rgba(45,138,64,0.2),rgba(45,138,64,0.35));border:1px solid #2d8a40;border-radius:var(--radius);color:#3daa52;font-family:var(--font-heading);font-size:0.82rem;cursor:pointer;letter-spacing:0.03em;margin-bottom:1rem;">
@@ -1306,7 +1308,7 @@ async function renderizarMapaMesas() {
     const mesaIcon  = (m) => isMesaNum(m) ? '🪄' : m === 'ENTREGA' ? '🚴' : '🏃';
 
     const cards = Object.entries(porMesa)
-      .filter(([_, peds]) => peds.some(p => !['entregue','cancelado'].includes(p.status)))
+      .filter(([mesa, _]) => !mesasPagas.has(String(mesa)))
       .sort((a,b) => {
         const aPronto = a[1].some(p => p.status === 'pronto');
         const bPronto = b[1].some(p => p.status === 'pronto');
@@ -1318,7 +1320,10 @@ async function renderizarMapaMesas() {
         const ativas = peds.filter(p => !['entregue','cancelado'].includes(p.status));
         const temPronto = ativas.some(p => p.status === 'pronto');
         const temPrep   = ativas.some(p => ['preparando','pendente'].includes(p.status));
-        const statusTxt = temPronto ? '🔔 Pronto p/ entregar' : temPrep ? '🔥 Em preparo' : '';
+        const statusTxt = ativas.length === 0
+          ? '✓ Conta a fechar'
+          : temPronto ? '🔔 Pronto p/ entregar'
+          : temPrep   ? '🔥 Em preparo' : '';
         const cls = temPronto ? 'mc-pronto' : temPrep ? 'mc-preparo' : '';
         return `
           <div class="mesa-card ${cls}">
@@ -1606,17 +1611,19 @@ async function renderizarGarcomGestao() {
   if (!supabase) { body.innerHTML = '<div class="admin-empty">⏳ Conectando...</div>'; return; }
   try {
     const startOfDay = new Date(); startOfDay.setHours(0,0,0,0);
-    const { data } = await supabase.from('mesas').select('*')
-      .gte('ts', startOfDay.getTime())
-      .order('ts', { ascending: true });
-    const pedidos = data || [];
+    const [{ data: pedidosData }, { data: pagsData }] = await Promise.all([
+      supabase.from('mesas').select('*').gte('ts', startOfDay.getTime()).order('ts', { ascending: true }),
+      supabase.from('pagamentos').select('mesa').gte('ts', startOfDay.getTime())
+    ]);
+    const pedidos    = pedidosData || [];
+    const mesasPagas = new Set((pagsData || []).map(p => String(p.mesa)));
 
     const isMesaNum = m => !isNaN(parseInt(m));
     const mesaLabel = m => isMesaNum(m) ? `Mesa ${m}` : m === 'ENTREGA' ? 'Entrega' : 'Retirada';
     const mesaIcon  = m => isMesaNum(m) ? '🪄' : m === 'ENTREGA' ? '🚴' : '🏃';
 
-    // Kanban: só pedidos de mesa (não ENTREGA/RETIRADA)
-    const mesaPeds  = pedidos.filter(p => isMesaNum(p.mesa));
+    // Kanban: só pedidos de mesa (não ENTREGA/RETIRADA) e ainda não pagas
+    const mesaPeds  = pedidos.filter(p => isMesaNum(p.mesa) && !mesasPagas.has(String(p.mesa)));
     const emPreparo = mesaPeds.filter(p => ['pendente','preparando'].includes(p.status));
     const prontos   = mesaPeds.filter(p => p.status === 'pronto');
 
@@ -1643,7 +1650,7 @@ async function renderizarGarcomGestao() {
     pedidos.forEach(p => { if (!porMesa[p.mesa]) porMesa[p.mesa] = []; porMesa[p.mesa].push(p); });
 
     const ativasPorMesa = Object.entries(porMesa)
-      .filter(([_, peds]) => peds.some(p => !['entregue','cancelado'].includes(p.status)))
+      .filter(([mesa, _]) => !mesasPagas.has(String(mesa)))
       .sort((a, b) => {
         const aPronto = a[1].some(p => p.status === 'pronto');
         const bPronto = b[1].some(p => p.status === 'pronto');
@@ -1658,7 +1665,10 @@ async function renderizarGarcomGestao() {
         const ativas = peds.filter(p => !['entregue','cancelado'].includes(p.status));
         const temPronto = ativas.some(p => p.status === 'pronto');
         const temPrep   = ativas.some(p => ['preparando','pendente'].includes(p.status));
-        const statusTxt = temPronto ? '🔔 Pronto p/ entregar' : temPrep ? '🔥 Em preparo' : '';
+        const statusTxt = ativas.length === 0
+          ? '✓ Conta a fechar'
+          : temPronto ? '🔔 Pronto p/ entregar'
+          : temPrep   ? '🔥 Em preparo' : '';
         const cls = temPronto ? 'mc-pronto' : temPrep ? 'mc-preparo' : '';
         return `
           <div class="mesa-card ${cls}">

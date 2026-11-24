@@ -65,7 +65,7 @@
   display: none; align-items: flex-end; justify-content: flex-start;
 }
 #status-panel.open { display: flex; }
-#status-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); }
+#status-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.6); }
 #status-drawer {
   position: relative; z-index: 1;
   width: min(400px, 100%); height: 100vh;
