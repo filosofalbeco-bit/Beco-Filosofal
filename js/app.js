@@ -1209,8 +1209,13 @@ async function renderizarMapaMesas() {
       .order('ts', { ascending: true });
     const pedidos = data || [];
 
+    const btnNovo = `<button onclick="abrirNovoPedidoGarcom()"
+      style="width:100%;padding:0.65rem;background:linear-gradient(135deg,rgba(45,138,64,0.2),rgba(45,138,64,0.35));border:1px solid #2d8a40;border-radius:var(--radius);color:#3daa52;font-family:var(--font-heading);font-size:0.82rem;cursor:pointer;letter-spacing:0.03em;margin-bottom:1rem;">
+      ➕ Novo Pedido
+    </button>`;
+
     if (pedidos.length === 0) {
-      body.innerHTML = '<div class="admin-empty">Nenhuma mesa ativa hoje.</div>';
+      body.innerHTML = btnNovo + '<div class="admin-empty">Nenhuma mesa ativa hoje.</div>';
       return;
     }
 
@@ -1253,11 +1258,144 @@ async function renderizarMapaMesas() {
           </div>`;
       });
 
-    body.innerHTML = `<div class="mesas-grid">${cards.join('')}</div>`;
+    body.innerHTML = btnNovo + `<div class="mesas-grid">${cards.join('')}</div>`;
   } catch(e) {
     body.innerHTML = '<div class="admin-empty">Erro ao carregar mesas.</div>';
     console.warn('MapaMesas fetch failed', e);
   }
+}
+
+// ── Novo Pedido pelo Garçom ──────────────────────────────────────────────────
+let cartGarcom = {};
+
+function abrirNovoPedidoGarcom() {
+  if (!CARDAPIO_DINAMICO || Object.keys(CARDAPIO_DINAMICO).length === 0) {
+    mostrarToast('⏳ Cardápio ainda carregando, tente em instantes.');
+    return;
+  }
+
+  const mesasVis = parseInt(localStorage.getItem('bf_mesas_visiveis') || '10');
+
+  const itens = Object.values(CARDAPIO_DINAMICO)
+    .filter(item => item.ativo !== false)
+    .map(item => `
+      <div class="ngp-item" id="ngp-row-${item.id}">
+        <div class="ngp-item-info">
+          <span class="ngp-item-nome">${item.nome}</span>
+          <span class="ngp-item-preco">R$ ${item.preco.toFixed(2).replace('.',',')}</span>
+        </div>
+        <div class="ngp-qty-ctrl">
+          <button onclick="changeQtyGarcom('${item.id}','${item.nome.replace(/'/g,"\\'")}',${item.preco},-1)">−</button>
+          <span class="ngp-qty-num" id="ngp-qty-${item.id}">0</span>
+          <button onclick="changeQtyGarcom('${item.id}','${item.nome.replace(/'/g,"\\'")}',${item.preco},1)">+</button>
+        </div>
+      </div>`).join('');
+
+  const mesaOpts = Array.from({length: mesasVis}, (_,i) =>
+    `<option value="${i+1}">Mesa ${i+1}</option>`).join('');
+
+  const html = `
+    <div id="ngp-overlay" onclick="if(event.target===this)fecharNovoPedidoGarcom()"
+      style="position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9000;display:flex;align-items:center;justify-content:center;padding:1rem;">
+      <div style="background:var(--bg-card);border:1px solid var(--accent);border-radius:var(--radius);width:100%;max-width:420px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;">
+        <div style="padding:1rem 1.2rem 0.6rem;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-family:var(--font-heading);color:var(--accent);font-size:1.05rem;">➕ Novo Pedido</span>
+          <button onclick="fecharNovoPedidoGarcom()" style="background:none;border:none;color:var(--text-muted);font-size:1.3rem;cursor:pointer;">✕</button>
+        </div>
+        <div style="padding:0.75rem 1.2rem;border-bottom:1px solid rgba(255,255,255,0.08);display:flex;gap:0.75rem;align-items:center;">
+          <label style="color:var(--text-muted);font-size:0.85rem;white-space:nowrap;">Mesa:</label>
+          <select id="ngp-mesa" style="flex:1;background:var(--bg-input);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:var(--text);padding:0.4rem 0.6rem;font-size:0.95rem;">${mesaOpts}</select>
+        </div>
+        <div style="overflow-y:auto;flex:1;padding:0.5rem 1.2rem;">${itens}</div>
+        <div style="padding:0.6rem 1.2rem;border-top:1px solid rgba(255,255,255,0.08);">
+          <input id="ngp-obs" type="text" placeholder="Observação (opcional)"
+            style="width:100%;background:var(--bg-input);border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:var(--text);padding:0.45rem 0.7rem;font-size:0.88rem;box-sizing:border-box;margin-bottom:0.6rem;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.6rem;">
+            <span style="color:var(--text-muted);font-size:0.85rem;">Total:</span>
+            <span id="ngp-total" style="color:var(--accent);font-family:var(--font-heading);font-size:1.05rem;">R$ 0,00</span>
+          </div>
+          <button onclick="confirmarPedidoGarcomManual()"
+            style="width:100%;padding:0.7rem;background:linear-gradient(135deg,var(--accent),var(--accent-dark,#b8860b));border:none;border-radius:var(--radius);color:#000;font-family:var(--font-heading);font-size:0.95rem;cursor:pointer;font-weight:600;">
+            🍳 Enviar Pedido
+          </button>
+        </div>
+      </div>
+    </div>`;
+
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function fecharNovoPedidoGarcom() {
+  const el = document.getElementById('ngp-overlay');
+  if (el) el.remove();
+  cartGarcom = {};
+}
+
+function changeQtyGarcom(id, name, price, delta) {
+  if (!cartGarcom[id]) cartGarcom[id] = { id, name, price, qty: 0 };
+  cartGarcom[id].qty = Math.max(0, cartGarcom[id].qty + delta);
+  if (cartGarcom[id].qty === 0) delete cartGarcom[id];
+
+  const qtyEl = document.getElementById('ngp-qty-' + id);
+  if (qtyEl) qtyEl.textContent = cartGarcom[id]?.qty || 0;
+
+  const total = Object.values(cartGarcom).reduce((s, i) => s + i.price * i.qty, 0);
+  const totalEl = document.getElementById('ngp-total');
+  if (totalEl) totalEl.textContent = 'R$ ' + total.toFixed(2).replace('.', ',');
+}
+
+async function confirmarPedidoGarcomManual() {
+  if (Object.keys(cartGarcom).length === 0) {
+    mostrarToast('Adicione pelo menos um item.');
+    return;
+  }
+
+  const mesaEl = document.getElementById('ngp-mesa');
+  const mesa = mesaEl ? mesaEl.value : '1';
+  const obs  = (document.getElementById('ngp-obs') || {}).value || '';
+  const ts   = Date.now();
+
+  const itensPorDestino = {};
+  Object.values(cartGarcom).forEach(i => {
+    const dest = CARDAPIO_DINAMICO[i.id]?.destino || 'cozinha';
+    if (!itensPorDestino[dest]) itensPorDestino[dest] = [];
+    itensPorDestino[dest].push({ name: i.name, qty: i.qty, price: i.price });
+  });
+
+  if (!dbRef) {
+    mostrarToast('⚠️ Banco não conectado. Tente novamente.');
+    return;
+  }
+
+  const destinos = Object.keys(itensPorDestino);
+  let erros = 0;
+  for (let offset = 0; offset < destinos.length; offset++) {
+    const dest  = destinos[offset];
+    const itens = itensPorDestino[dest];
+    const subtotal = itens.reduce((s, i) => s + i.price * i.qty, 0);
+    const codigo = gerarCodigoPedido();
+    const pedido = {
+      id: codigo, mesa, itens, total: subtotal, obs,
+      status: dest === 'garcom' ? 'pronto' : 'pendente',
+      destino: dest,
+      ts: ts + offset
+    };
+    try {
+      await dbRef.collection('mesas').doc(codigo).set(pedido);
+    } catch(e) {
+      console.error('DB save failed', dest, e);
+      erros++;
+    }
+  }
+
+  if (erros > 0) {
+    mostrarToast('❌ Erro ao enviar pedido. Tente novamente.');
+    return;
+  }
+
+  fecharNovoPedidoGarcom();
+  mostrarToast(`✓ Pedido enviado para Mesa ${mesa}!`);
+  renderizarMapaMesas();
 }
 
 async function renderizarGarcom() {
