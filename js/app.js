@@ -2214,7 +2214,7 @@ async function carregarCardapioDB() {
     const { data } = await supabase.from('cardapio').select('*').order('categoria').order('ordem');
     if (data) {
       data.forEach(item => {
-        CARDAPIO_DINAMICO[item.id] = { destino: item.destino, ativo: item.ativo !== false, nome: item.nome, preco: item.preco, descricao: item.descricao };
+        CARDAPIO_DINAMICO[item.id] = { destino: item.destino, ativo: item.ativo !== false, nome: item.nome, preco: item.preco, descricao: item.descricao, foto_url: item.foto_url };
       });
       atualizarCardapioDom(data);
     }
@@ -2231,6 +2231,19 @@ function atualizarCardapioDom(items) {
     if (item.nome)  { el.dataset.name = item.nome;  const n = el.querySelector('.scroll-item-name');  if (n) n.textContent = item.nome; }
     if (item.preco) { el.dataset.price = item.preco; const p = el.querySelector('.scroll-item-price'); if (p) p.textContent = 'R$ ' + item.preco.toFixed(2).replace('.', ','); }
     if (item.descricao) { const d = el.querySelector('.scroll-item-desc'); if (d) d.textContent = item.descricao; }
+    // Foto
+    if (item.foto_url) {
+      let wrap = el.querySelector('.scroll-item-foto-wrap');
+      if (!wrap) {
+        wrap = document.createElement('div');
+        wrap.className = 'scroll-item-foto-wrap';
+        wrap.innerHTML = `<img class="scroll-item-foto" src="${item.foto_url}" alt="${item.nome}" loading="lazy" onerror="this.parentElement.style.display='none'"><span class="scroll-item-foto-aviso">Imagem meramente ilustrativa</span>`;
+        el.insertBefore(wrap, el.firstChild);
+      } else {
+        const img = wrap.querySelector('img');
+        if (img) { img.src = item.foto_url; img.alt = item.nome; wrap.style.display = ''; }
+      }
+    }
     // Esgotado
     if (item.ativo === false) {
       el.classList.add('item-esgotado');
@@ -2281,6 +2294,7 @@ const CARDAPIO = {
 function mkItemHTML(item, idx) {
   return `
     <div class="scroll-item" data-id="${item.id}" data-name="${item.name}" data-price="${item.price}">
+      ${item.foto ? `<div class="scroll-item-foto-wrap"><img class="scroll-item-foto" src="${item.foto}" alt="${item.name}" loading="lazy" onerror="this.parentElement.style.display='none'"><span class="scroll-item-foto-aviso">Imagem meramente ilustrativa</span></div>` : ''}
       <div>
         <div class="scroll-item-num">${String(idx + 1).padStart(2, '0')}</div>
         <div class="scroll-item-name">${item.name}</div>
@@ -2367,8 +2381,11 @@ async function renderizarCardapioAdmin() {
                 style="width:100%;margin-bottom:0.4rem;padding:0.4rem;background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:4px;color:var(--fg);font-size:0.8rem;box-sizing:border-box;"
                 placeholder="Preço">
               <input id="edit-desc-${item.id}" type="text" value="${(item.descricao||'').replace(/"/g,'&quot;')}"
-                style="width:100%;margin-bottom:0.6rem;padding:0.4rem;background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:4px;color:var(--fg);font-size:0.8rem;box-sizing:border-box;"
+                style="width:100%;margin-bottom:0.4rem;padding:0.4rem;background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:4px;color:var(--fg);font-size:0.8rem;box-sizing:border-box;"
                 placeholder="Descrição">
+              <input id="edit-foto-${item.id}" type="url" value="${(item.foto_url||'').replace(/"/g,'&quot;')}"
+                style="width:100%;margin-bottom:0.6rem;padding:0.4rem;background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:4px;color:var(--fg);font-size:0.8rem;box-sizing:border-box;"
+                placeholder="URL da foto (opcional)">
               <div style="display:flex;gap:0.4rem;">
                 <button onclick="salvarItemCardapio('${item.id}')"
                   style="flex:1;padding:0.4rem;background:rgba(45,138,64,0.2);border:1px solid #2d8a40;border-radius:4px;color:#3daa52;font-size:0.75rem;cursor:pointer;">✓ Salvar</button>
@@ -2393,12 +2410,13 @@ function cancelarEdicaoCardapio(id) {
   document.getElementById(`edit-form-${id}`).style.display = 'none';
 }
 async function salvarItemCardapio(id) {
-  const nome  = document.getElementById(`edit-nome-${id}`)?.value?.trim();
-  const preco = parseFloat(document.getElementById(`edit-preco-${id}`)?.value);
-  const desc  = document.getElementById(`edit-desc-${id}`)?.value?.trim();
+  const nome     = document.getElementById(`edit-nome-${id}`)?.value?.trim();
+  const preco    = parseFloat(document.getElementById(`edit-preco-${id}`)?.value);
+  const desc     = document.getElementById(`edit-desc-${id}`)?.value?.trim();
+  const foto_url = document.getElementById(`edit-foto-${id}`)?.value?.trim() || null;
   if (!nome || isNaN(preco) || preco < 0) { mostrarToast('⚠️ Preencha nome e preço válidos'); return; }
   try {
-    const { error } = await supabase.from('cardapio').update({ nome, preco, descricao: desc }).eq('id', id);
+    const { error } = await supabase.from('cardapio').update({ nome, preco, descricao: desc, foto_url }).eq('id', id);
     if (error) throw error;
     mostrarToast('✓ Item atualizado');
     cancelarEdicaoCardapio(id);
