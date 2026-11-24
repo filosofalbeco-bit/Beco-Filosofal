@@ -19,5 +19,5 @@ window.SUPABASE_URL      = '';   // ex: 'https://abcdef.supabase.co'
 window.SUPABASE_ANON_KEY = '';   // chave anon pública do Supabase
 window.PIX_CHAVE         = '';   // chave PIX (CPF, CNPJ, email ou telefone)
 window.PIX_NOME          = 'Beco FilosoFal Burguer';
-window.PIX_CIDADE        = 'Barbacena';
+window.PIX_CIDADE        = '';   // definir via variável de ambiente PIX_CIDADE
 window.WPP_NUM           = '';   // ex: '5531999999999'

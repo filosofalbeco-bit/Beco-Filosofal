@@ -262,7 +262,7 @@ const cart = {}; // { id: { name, price, qty } }
 const PIX_CONFIG = {
   chave:  window.PIX_CHAVE   || '11999999999',
   nome:   window.PIX_NOME    || 'Beco FilosoFal Burguer',
-  cidade: window.PIX_CIDADE  || 'Barbacena'
+  cidade: window.PIX_CIDADE  || ''
 };
 
 // --- PIX EMV (Pix Copia e Cola) ---
@@ -301,7 +301,7 @@ function gerarPixPayload(chave, nome, cidade, valor, txid) {
 const WPP_NUM = window.WPP_NUM || '5531999999999';
 const ZONAS = [
   { prefix: '36200', nome: 'Centro e bairros próximos', taxa: 5.00 },
-  { prefix: '362',   nome: 'Barbacena (demais bairros)', taxa: 8.00 },
+  { prefix: '362',   nome: 'Demais bairros',             taxa: 8.00 },
   { prefix: '363',   nome: 'Região ampliada',            taxa: 12.00 },
 ];
 
