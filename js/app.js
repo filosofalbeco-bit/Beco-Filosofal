@@ -1402,6 +1402,79 @@ async function rejeitarPedidoCaixa(id, btn) {
   }
 }
 
+async function renderizarCaixaGestao() {
+  const body = document.getElementById('caixa-gestao-body');
+  if (!body) return;
+  if (!supabase) { body.innerHTML = '<div class="admin-empty">⏳ Conectando...</div>'; return; }
+  try {
+    const { data } = await supabase.from('mesas').select('*')
+      .in('status', ['aguardando', 'pendente', 'preparando', 'pronto'])
+      .order('ts', { ascending: true });
+    const pedidos = data || [];
+
+    const aguardando = pedidos.filter(p => p.status === 'aguardando');
+    const emAndamento = pedidos.filter(p => ['pendente','preparando','pronto'].includes(p.status));
+
+    const fmtMesa = m => !isNaN(parseInt(m)) ? `Mesa ${m}` : m === 'ENTREGA' ? '🚴 Entrega' : '🏃 Retirada';
+    const fmtHora = ts => new Date(ts).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+
+    const cardsAguardando = aguardando.map(p => `
+      <div class="caixa-card caixa-card-aguardando">
+        <div class="caixa-card-header">
+          <span class="caixa-card-id">#${p.id} · ${fmtHora(p.ts)}</span>
+          <span class="caixa-card-mesa">${fmtMesa(p.mesa)}</span>
+        </div>
+        <div class="caixa-card-itens">${(p.itens||[]).map(i => `${i.qty}× ${i.name}`).join(' · ')}</div>
+        ${p.obs ? `<div class="caixa-card-obs">📝 ${p.obs}</div>` : ''}
+        <div class="caixa-card-total">R$ ${(p.total||0).toFixed(2).replace('.',',')}</div>
+        <div class="caixa-card-acoes">
+          <button class="caixa-btn-confirmar" onclick="confirmarPedidoCaixaGestao('${p.id}', this)">✓ Confirmar pagamento</button>
+          <button class="caixa-btn-rejeitar" onclick="rejeitarPedidoCaixaGestao('${p.id}', this)">✕ Rejeitar</button>
+        </div>
+      </div>`).join('');
+
+    const resumoAndamento = emAndamento.length > 0
+      ? `<div class="caixa-secao-label">EM ANDAMENTO (${emAndamento.length})</div>
+         <div style="font-size:0.78rem;color:var(--text-muted);padding:0.25rem 0 0.5rem;">
+           ${emAndamento.map(p => `${fmtMesa(p.mesa)} · R$ ${(p.total||0).toFixed(2).replace('.',',')} · <em>${p.status}</em>`).join('<br>')}
+         </div>` : '';
+
+    body.innerHTML = `
+      <div class="caixa-secao-label">AGUARDANDO PAGAMENTO (${aguardando.length})</div>
+      ${aguardando.length === 0 ? '<div class="admin-empty" style="margin-bottom:1rem;">Nenhum pedido aguardando</div>' : cardsAguardando}
+      ${resumoAndamento}`;
+  } catch(e) {
+    body.innerHTML = '<div class="admin-empty">Erro ao carregar.</div>';
+    console.warn('renderizarCaixaGestao failed', e);
+  }
+}
+
+async function confirmarPedidoCaixaGestao(id, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = '...'; }
+  try {
+    await supabase.from('mesas').update({ status: 'pendente' }).eq('id', id).eq('status', 'aguardando');
+    mostrarToast('✓ Pedido confirmado — foi para a cozinha!');
+    renderizarCaixaGestao();
+    atualizarDashboard();
+  } catch(e) {
+    mostrarToast('❌ Erro: ' + (e?.message || ''));
+    if (btn) { btn.disabled = false; btn.textContent = '✓ Confirmar pagamento'; }
+  }
+}
+
+async function rejeitarPedidoCaixaGestao(id, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = '...'; }
+  try {
+    await supabase.from('mesas').update({ status: 'cancelado' }).eq('id', id);
+    mostrarToast('Pedido cancelado.');
+    renderizarCaixaGestao();
+    atualizarDashboard();
+  } catch(e) {
+    mostrarToast('❌ Erro: ' + (e?.message || ''));
+    if (btn) { btn.disabled = false; btn.textContent = '✕ Rejeitar'; }
+  }
+}
+
 // ── Novo Pedido pelo Garçom ──────────────────────────────────────────────────
 let cartGarcom = {};
 
@@ -2017,6 +2090,8 @@ async function atualizarDashboard() {
     const totalHoje     = pedidos.length;
     const fatHoje       = pedidos.reduce((s, p) => s + (p.total || 0), 0);
 
+    const aguardandoPagamento = pedidos.filter(p => p.status === 'aguardando').length;
+
     const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
     set('dash-mesas-ativas', mesasAtivas.size);
     set('dash-em-preparo',   mesaEmPreparo);
@@ -2026,6 +2101,13 @@ async function atualizarDashboard() {
     set('dash-total-hoje',   totalHoje);
     set('dash-fat-hoje',     'R$ ' + fatHoje.toFixed(2).replace('.', ','));
     set('dash-gorjeta-hoje', 'R$ ' + gorjetaHoje.toFixed(2).replace('.', ','));
+
+    const blocoAguardando = document.getElementById('dash-aguardando-bloco');
+    if (blocoAguardando) {
+      set('dash-aguardando-num', aguardandoPagamento);
+      blocoAguardando.style.display = aguardandoPagamento > 0 ? 'flex' : 'none';
+    }
+
     const ref = document.querySelector('.dash-refresh');
     if (ref) ref.textContent = '🔄 Atualizado ' + new Date().toLocaleTimeString('pt-BR');
   } catch(e) { console.warn('Dashboard fetch failed', e); }
@@ -2070,17 +2152,18 @@ function mostrarAjudaAdmin() {
 }
 
 function mudarAbaAdmin(aba) {
-  ['dashboard','pedidos','cozinha','links','cardapio','relatorios'].forEach(a => {
+  ['dashboard','pedidos','cozinha','links','cardapio','caixa-gestao','relatorios'].forEach(a => {
     const el  = document.getElementById(`admin-aba-${a}`);
     const tab = document.getElementById(`tab-${a}`);
     if (el)  el.style.display = a === aba ? 'block' : 'none';
     if (tab) tab.classList.toggle('active', a === aba);
   });
-  if (aba === 'links')      renderizarLinksAdmin();
-  if (aba === 'cozinha')    renderizarCozinha();
-  if (aba === 'dashboard')  atualizarDashboard();
-  if (aba === 'cardapio')   renderizarCardapioAdmin();
-  if (aba === 'relatorios') renderizarRelatorios();
+  if (aba === 'links')        renderizarLinksAdmin();
+  if (aba === 'cozinha')      renderizarCozinha();
+  if (aba === 'dashboard')    atualizarDashboard();
+  if (aba === 'cardapio')     renderizarCardapioAdmin();
+  if (aba === 'relatorios')   renderizarRelatorios();
+  if (aba === 'caixa-gestao') renderizarCaixaGestao();
 }
 
 async function renderizarCozinha() {
