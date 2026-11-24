@@ -655,8 +655,9 @@ async function atualizarStatusEncerrar() {
     const pedidos = rawPeds || [];
     const total = pedidos.length;
     const entregues = pedidos.filter(p => p.status === 'entregue').length;
-    const pendentes = total - entregues;
-    if (total === 0) {
+    const ativos    = pedidos.filter(p => p.status !== 'cancelado');
+    const pendentes = ativos.filter(p => p.status !== 'entregue').length;
+    if (ativos.length === 0) {
       if (statusEl) statusEl.textContent = '';
       if (btnEnc) btnEnc.disabled = true;
     } else if (pendentes > 0) {
@@ -1326,6 +1327,16 @@ async function abrirFecharConta(mesa) {
 
   const total = pedidos.reduce((s, p) => s + (p.total||0), 0);
   _pagTotal = total;
+  _pagGorjeta = 0;
+
+  // Atualizar UI gorjeta no modal
+  const gorjeta10 = Math.round(total * 0.10 * 100) / 100;
+  const gBtn = document.getElementById('pag-btn-gorjeta10');
+  if (gBtn) { gBtn.dataset.base = gorjeta10.toFixed(2); gBtn.textContent = `10% — R$ ${gorjeta10.toFixed(2).replace('.',',')}`; gBtn.classList.remove('gorjeta-ativo'); }
+  const gInput = document.getElementById('pag-gorjeta-input');
+  if (gInput) gInput.value = '';
+  const gTotal = document.getElementById('pag-total-gorjeta');
+  if (gTotal) gTotal.textContent = 'R$ ' + total.toFixed(2).replace('.', ',');
 
   // Agrupar itens por pedido (mostrar detalhado por pedido)
   let itensHtml = '';
@@ -1479,7 +1490,7 @@ async function confirmarPagamentoGarcom() {
     if (supabase) {
       await supabase.from('pagamentos').insert({
         id: 'pag-' + Math.random().toString(36).substring(2,10),
-        mesa: _pagMesa, total: _pagTotal, gorjeta: 0, forma: _pagForma,
+        mesa: _pagMesa, total: _pagTotal, gorjeta: _pagGorjeta, forma: _pagForma,
         responsavel: 'garçom', ts, ts_brasilia: tsBrasilia
       });
     }
@@ -1499,7 +1510,7 @@ async function confirmarPagamentoGarcom() {
 
 function fecharModalPag() {
   document.getElementById('pag-modal').style.display = 'none';
-  _pagMesa = null; _pagForma = null; _pagTotal = 0; _pagDestino = null;
+  _pagMesa = null; _pagForma = null; _pagTotal = 0; _pagDestino = null; _pagGorjeta = 0;
 }
 
 // --- KANBAN HELPERS ---
@@ -1565,7 +1576,7 @@ async function renderizarCozinhaStandalone() {
 
     body.innerHTML = mkKanbanBoard(
       pendentes, preparando, prontos,
-      p => `<button class="btn-kanban btn-iniciar" onclick="marcarPreparando('${p.id}', this)">▶ Iniciar preparo</button>`,
+      p => `<button class="btn-kanban btn-iniciar" onclick="marcarPreparando('${p.id}', this)">▶ Iniciar preparo</button><button class="btn-kanban" onclick="cancelarPedido('${p.id}', this)" style="margin-top:0.3rem;background:rgba(224,96,96,0.1);border-color:rgba(224,96,96,0.4);color:#e06060;font-size:0.72rem;">✕ Cancelar</button>`,
       p => `<button class="btn-kanban btn-pronto-k" onclick="marcarProntoKitchen('${p.id}', this)">✓ Concluído</button>`,
       () => `<div class="kanban-card-info">Aguardando garçom</div>`
     );
@@ -1647,16 +1658,17 @@ async function atualizarDashboard() {
 let dashInterval = null;
 
 function mudarAbaAdmin(aba) {
-  ['dashboard','pedidos','cozinha','links','cardapio'].forEach(a => {
+  ['dashboard','pedidos','cozinha','links','cardapio','relatorios'].forEach(a => {
     const el  = document.getElementById(`admin-aba-${a}`);
     const tab = document.getElementById(`tab-${a}`);
     if (el)  el.style.display = a === aba ? 'block' : 'none';
     if (tab) tab.classList.toggle('active', a === aba);
   });
-  if (aba === 'links')     renderizarLinksAdmin();
-  if (aba === 'cozinha')   renderizarCozinha();
-  if (aba === 'dashboard') atualizarDashboard();
-  if (aba === 'cardapio')  renderizarCardapioAdmin();
+  if (aba === 'links')      renderizarLinksAdmin();
+  if (aba === 'cozinha')    renderizarCozinha();
+  if (aba === 'dashboard')  atualizarDashboard();
+  if (aba === 'cardapio')   renderizarCardapioAdmin();
+  if (aba === 'relatorios') renderizarRelatorios();
 }
 
 async function renderizarCozinha() {
@@ -1861,23 +1873,28 @@ async function renderizarStatusPainel() {
       return;
     }
 
-    const totalGeral   = pedidos.reduce((s, p) => s + (p.total || 0), 0);
-    const pendentes    = pedidos.filter(p => p.status !== 'entregue').length;
-    const tudoEntregue = pendentes === 0;
+    const pedidosAtivos = pedidos.filter(p => p.status !== 'cancelado');
+    const totalGeral    = pedidosAtivos.reduce((s, p) => s + (p.total || 0), 0);
+    const pendentes     = pedidosAtivos.filter(p => p.status !== 'entregue').length;
+    const tudoEntregue  = pedidosAtivos.length > 0 && pendentes === 0;
     const gorjeta10    = Math.round(totalGeral * 0.10 * 100) / 100;
     _gorjetaVal = 0; // resetar ao reabrir painel
 
-    body.innerHTML = pedidos.map(p => `
-      <div class="status-item">
+    body.innerHTML = pedidos.map(p => {
+      const statusClass = p.status === 'entregue' ? 'entregue' : p.status === 'cancelado' ? 'cancelado' : p.status === 'pronto' ? 'pronto' : 'pendente';
+      const statusTxt   = p.status === 'entregue' ? '✓ Entregue' : p.status === 'cancelado' ? '✗ Cancelado' : p.status === 'pronto' ? '🔔 Pronto! Aguard. entrega' : '⏳ Em preparação...';
+      return `
+      <div class="status-item${p.status === 'cancelado' ? ' status-item-cancelado' : ''}">
         <div class="status-item-header">
           <span class="status-item-code">${p.id} · ${new Date(p.ts).toLocaleTimeString('pt-BR')}</span>
-          <span class="status-pill ${p.status === 'entregue' ? 'entregue' : p.status === 'pronto' ? 'pronto' : 'pendente'}">
-            ${p.status === 'entregue' ? '✓ Entregue' : p.status === 'pronto' ? '🔔 Pronto! Aguard. entrega' : '⏳ Em preparação...'}
-          </span>
+          <span class="status-pill ${statusClass}">${statusTxt}</span>
         </div>
         <div class="status-item-itens">${p.itens.map(i => `${i.name} ×${i.qty}`).join(' · ')}</div>
         <div class="status-item-meta">R$ ${p.total.toFixed(2).replace('.', ',')}${p.obs ? ' · ' + p.obs : ''}</div>
-      </div>`).join('') + `
+        ${p.status === 'pendente' ? `<button onclick="cancelarPedido('${p.id}', this)"
+          style="margin-top:0.35rem;background:none;border:1px solid rgba(224,96,96,0.3);border-radius:4px;color:#e06060;font-size:0.68rem;padding:0.2rem 0.6rem;cursor:pointer;font-family:var(--font-heading);">✕ Cancelar</button>` : ''}
+      </div>`;
+    }).join('') + `
       <div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid rgba(201,168,76,0.2);">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
           <span style="font-family:var(--font-heading);font-size:0.78rem;color:var(--fg-muted);">Total consumido</span>
@@ -1955,11 +1972,45 @@ let CARDAPIO_DINAMICO = {}; // id → { destino } — pré-populado do estático
 async function carregarCardapioDB() {
   if (!supabase) return;
   try {
-    const { data } = await supabase.from('cardapio').select('id, destino').eq('ativo', true);
-    if (data) data.forEach(item => { CARDAPIO_DINAMICO[item.id] = { destino: item.destino }; });
+    const { data } = await supabase.from('cardapio').select('*').order('categoria').order('ordem');
+    if (data) {
+      data.forEach(item => {
+        CARDAPIO_DINAMICO[item.id] = { destino: item.destino, ativo: item.ativo !== false };
+      });
+      atualizarCardapioDom(data);
+    }
   } catch(e) {
     console.warn('carregarCardapioDB failed', e);
   }
+}
+
+function atualizarCardapioDom(items) {
+  items.forEach(item => {
+    const el = document.querySelector(`.scroll-item[data-id="${item.id}"]`);
+    if (!el) return;
+    // Atualizar nome/preço/desc do estático com dados do banco
+    if (item.nome)  { el.dataset.name = item.nome;  const n = el.querySelector('.scroll-item-name');  if (n) n.textContent = item.nome; }
+    if (item.preco) { el.dataset.price = item.preco; const p = el.querySelector('.scroll-item-price'); if (p) p.textContent = 'R$ ' + item.preco.toFixed(2).replace('.', ','); }
+    if (item.descricao) { const d = el.querySelector('.scroll-item-desc'); if (d) d.textContent = item.descricao; }
+    // Esgotado
+    if (item.ativo === false) {
+      el.classList.add('item-esgotado');
+      el.querySelectorAll('.qty-btn').forEach(b => b.disabled = true);
+      const price = el.querySelector('.scroll-item-price');
+      if (price && !el.querySelector('.badge-esgotado')) {
+        const badge = document.createElement('span');
+        badge.className = 'badge-esgotado';
+        badge.textContent = 'Esgotado';
+        price.insertAdjacentElement('afterend', badge);
+      }
+    } else {
+      el.classList.remove('item-esgotado');
+      el.querySelectorAll('.qty-btn').forEach(b => b.disabled = false);
+      el.querySelector('.badge-esgotado')?.remove();
+    }
+    // Atualizar preço no carrinho se já foi adicionado
+    if (item.preco && cart[item.id]) { cart[item.id].price = item.preco; if (item.nome) cart[item.id].name = item.nome; }
+  });
 }
 
 const CARDAPIO = {
@@ -2046,16 +2097,45 @@ async function renderizarCardapioAdmin() {
       <div style="margin-bottom:1.5rem;">
         <div style="font-family:var(--font-heading);font-size:0.78rem;color:var(--gold-dark);margin-bottom:0.75rem;border-bottom:1px solid rgba(201,168,76,0.15);padding-bottom:0.4rem;">${CATEG_LABELS[cat] || cat}</div>
         ${items.map(item => `
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid rgba(201,168,76,0.06);">
-            <div>
-              <div style="font-size:0.82rem;color:var(--fg);">${item.nome}</div>
-              <div style="font-size:0.68rem;color:var(--fg-muted);">R$ ${item.preco.toFixed(2).replace('.',',')}</div>
+          <div id="cardapio-row-${item.id}" style="padding:0.5rem 0;border-bottom:1px solid rgba(201,168,76,0.06);">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;">
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:0.82rem;color:${item.ativo === false ? 'var(--fg-muted)' : 'var(--fg)'};display:flex;align-items:center;gap:0.4rem;">
+                  ${item.ativo === false ? '<span style="color:#e06060;font-size:0.68rem;">⊘ Esgotado</span>' : ''}
+                  ${item.nome}
+                </div>
+                <div style="font-size:0.68rem;color:var(--fg-muted);">R$ ${item.preco.toFixed(2).replace('.',',')}${item.descricao ? ' · ' + item.descricao.substring(0,40) + (item.descricao.length>40?'…':'') : ''}</div>
+              </div>
+              <div style="display:flex;gap:0.3rem;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
+                <button onclick="alterarDestino('${item.id}','cozinha')" id="dest-coz-${item.id}"
+                  class="btn-dest${item.destino === 'cozinha' ? ' dest-ativo' : ''}">🔥</button>
+                <button onclick="alterarDestino('${item.id}','garcom')" id="dest-gar-${item.id}"
+                  class="btn-dest${item.destino === 'garcom' ? ' dest-ativo' : ''}">🧙</button>
+                <button onclick="toggleAtivoCardapio('${item.id}', ${item.ativo !== false})" id="ativo-${item.id}"
+                  class="btn-dest${item.ativo === false ? ' dest-ativo' : ''}"
+                  style="${item.ativo === false ? 'border-color:#e06060;color:#e06060;' : ''}">
+                  ${item.ativo === false ? '⊘' : '✓'}
+                </button>
+                <button onclick="editarItemCardapio('${item.id}')" class="btn-dest">✏️</button>
+              </div>
             </div>
-            <div style="display:flex;gap:0.3rem;flex-shrink:0;">
-              <button onclick="alterarDestino('${item.id}','cozinha')" id="dest-coz-${item.id}"
-                class="btn-dest${item.destino === 'cozinha' ? ' dest-ativo' : ''}">🔥 Cozinha</button>
-              <button onclick="alterarDestino('${item.id}','garcom')" id="dest-gar-${item.id}"
-                class="btn-dest${item.destino === 'garcom' ? ' dest-ativo' : ''}">🧙 Garçom</button>
+            <div id="edit-form-${item.id}" style="display:none;margin-top:0.75rem;padding:0.75rem;background:rgba(201,168,76,0.05);border-radius:calc(var(--radius)-2px);border:1px solid rgba(201,168,76,0.12);">
+              <div style="font-size:0.68rem;color:var(--fg-muted);margin-bottom:0.5rem;">Editar item</div>
+              <input id="edit-nome-${item.id}" type="text" value="${item.nome.replace(/"/g,'&quot;')}"
+                style="width:100%;margin-bottom:0.4rem;padding:0.4rem;background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:4px;color:var(--fg);font-size:0.8rem;box-sizing:border-box;"
+                placeholder="Nome">
+              <input id="edit-preco-${item.id}" type="number" step="0.01" value="${item.preco}"
+                style="width:100%;margin-bottom:0.4rem;padding:0.4rem;background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:4px;color:var(--fg);font-size:0.8rem;box-sizing:border-box;"
+                placeholder="Preço">
+              <input id="edit-desc-${item.id}" type="text" value="${(item.descricao||'').replace(/"/g,'&quot;')}"
+                style="width:100%;margin-bottom:0.6rem;padding:0.4rem;background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:4px;color:var(--fg);font-size:0.8rem;box-sizing:border-box;"
+                placeholder="Descrição">
+              <div style="display:flex;gap:0.4rem;">
+                <button onclick="salvarItemCardapio('${item.id}')"
+                  style="flex:1;padding:0.4rem;background:rgba(45,138,64,0.2);border:1px solid #2d8a40;border-radius:4px;color:#3daa52;font-size:0.75rem;cursor:pointer;">✓ Salvar</button>
+                <button onclick="cancelarEdicaoCardapio('${item.id}')"
+                  style="padding:0.4rem 0.75rem;background:none;border:1px solid rgba(201,168,76,0.2);border-radius:4px;color:var(--fg-muted);font-size:0.75rem;cursor:pointer;">Cancelar</button>
+              </div>
             </div>
           </div>
         `).join('')}
@@ -2064,6 +2144,177 @@ async function renderizarCardapioAdmin() {
   } catch(e) {
     body.innerHTML = '<div class="admin-empty">Erro ao carregar cardápio.</div>';
     console.warn('renderizarCardapioAdmin failed', e);
+  }
+}
+
+function editarItemCardapio(id) {
+  document.getElementById(`edit-form-${id}`).style.display = 'block';
+}
+function cancelarEdicaoCardapio(id) {
+  document.getElementById(`edit-form-${id}`).style.display = 'none';
+}
+async function salvarItemCardapio(id) {
+  const nome  = document.getElementById(`edit-nome-${id}`)?.value?.trim();
+  const preco = parseFloat(document.getElementById(`edit-preco-${id}`)?.value);
+  const desc  = document.getElementById(`edit-desc-${id}`)?.value?.trim();
+  if (!nome || isNaN(preco) || preco < 0) { mostrarToast('⚠️ Preencha nome e preço válidos'); return; }
+  try {
+    const { error } = await supabase.from('cardapio').update({ nome, preco, descricao: desc }).eq('id', id);
+    if (error) throw error;
+    mostrarToast('✓ Item atualizado');
+    cancelarEdicaoCardapio(id);
+    renderizarCardapioAdmin();
+    carregarCardapioDB(); // atualiza cardápio do cliente
+  } catch(e) {
+    mostrarToast('❌ Erro ao salvar: ' + (e?.message || ''));
+  }
+}
+async function toggleAtivoCardapio(id, estaAtivo) {
+  const novoAtivo = !estaAtivo;
+  try {
+    const { error } = await supabase.from('cardapio').update({ ativo: novoAtivo }).eq('id', id);
+    if (error) throw error;
+    mostrarToast(novoAtivo ? '✓ Item disponível' : '⊘ Item marcado como esgotado');
+    renderizarCardapioAdmin();
+    carregarCardapioDB();
+  } catch(e) {
+    mostrarToast('❌ Erro: ' + (e?.message || ''));
+  }
+}
+
+// --- GORJETA GARÇOM (modal fechar conta) ---
+let _pagGorjeta = 0;
+function toggleGorjetaPag10() {
+  const btn   = document.getElementById('pag-btn-gorjeta10');
+  const input = document.getElementById('pag-gorjeta-input');
+  const base  = parseFloat(btn?.dataset.base || 0);
+  const jaAtivo = _pagGorjeta > 0 && Math.abs(_pagGorjeta - base) < 0.01;
+  _pagGorjeta = jaAtivo ? 0 : base;
+  if (input) input.value = _pagGorjeta > 0 ? _pagGorjeta.toFixed(2) : '';
+  _atualizarUIGorjetaPag();
+}
+function atualizarGorjetaPag(val) {
+  _pagGorjeta = Math.max(0, parseFloat(val) || 0);
+  _atualizarUIGorjetaPag();
+}
+function _atualizarUIGorjetaPag() {
+  const btn  = document.getElementById('pag-btn-gorjeta10');
+  const totalEl = document.getElementById('pag-total-gorjeta');
+  const base = parseFloat(btn?.dataset.base || 0);
+  if (btn) btn.classList.toggle('gorjeta-ativo', _pagGorjeta > 0 && Math.abs(_pagGorjeta - base) < 0.01);
+  if (totalEl) totalEl.textContent = 'R$ ' + (_pagTotal + _pagGorjeta).toFixed(2).replace('.', ',');
+}
+
+// --- CANCELAMENTO DE PEDIDO ---
+async function cancelarPedido(id, btn) {
+  if (btn.dataset.phase !== '2') {
+    btn.dataset.phase = '2';
+    const orig = btn.textContent;
+    btn.textContent = '⚠️ Confirmar?';
+    setTimeout(() => { if (btn.dataset.phase === '2') { btn.dataset.phase = ''; btn.textContent = orig; } }, 2500);
+    return;
+  }
+  btn.disabled = true; btn.textContent = '...';
+  try {
+    const { error } = await supabase.from('mesas').update({ status: 'cancelado' }).eq('id', id);
+    if (error) throw error;
+    mostrarToast('✓ Pedido cancelado');
+    if (mesaAtiva) { renderizarStatusPainel(); atualizarStatusEncerrar(); }
+    if (painelCozinhaAtivo)  renderizarCozinhaStandalone();
+    if (painelAdminAtivo)    renderizarPainelAdmin([]);
+    if (painelGarcomAtivo)   renderizarGarcom();
+  } catch(e) {
+    btn.disabled = false; btn.textContent = '✕ Cancelar';
+    mostrarToast('❌ Erro ao cancelar');
+  }
+}
+
+// --- RELATÓRIOS ---
+let _relPeriodo = 'hoje';
+async function renderizarRelatorios() {
+  const body = document.getElementById('relatorios-body');
+  if (!body) return;
+  if (!supabase) { body.innerHTML = '<div class="admin-empty">Sem conexão.</div>'; return; }
+  body.innerHTML = `
+    <div style="display:flex;gap:0.4rem;margin-bottom:1.25rem;">
+      ${['hoje','semana','mes'].map(p => `
+        <button onclick="selecionarPeriodo('${p}')" id="rel-btn-${p}"
+          class="admin-tab${_relPeriodo === p ? ' active' : ''}" style="font-size:0.72rem;">
+          ${p === 'hoje' ? 'Hoje' : p === 'semana' ? '7 dias' : '30 dias'}
+        </button>`).join('')}
+    </div>
+    <div id="rel-content"><div style="color:var(--fg-muted);font-size:0.8rem;">Carregando...</div></div>`;
+  await carregarRelatoriosPeriodo(_relPeriodo);
+}
+function selecionarPeriodo(p) {
+  _relPeriodo = p;
+  ['hoje','semana','mes'].forEach(x => {
+    const btn = document.getElementById(`rel-btn-${x}`);
+    if (btn) btn.classList.toggle('active', x === p);
+  });
+  carregarRelatoriosPeriodo(p);
+}
+async function carregarRelatoriosPeriodo(periodo) {
+  const content = document.getElementById('rel-content');
+  if (!content) return;
+  content.innerHTML = '<div style="color:var(--fg-muted);font-size:0.8rem;">Carregando...</div>';
+  const agora = new Date();
+  let tsInicio;
+  if (periodo === 'hoje') {
+    const d = new Date(agora); d.setHours(0,0,0,0); tsInicio = d.getTime();
+  } else if (periodo === 'semana') {
+    tsInicio = agora.getTime() - 7 * 24 * 60 * 60 * 1000;
+  } else {
+    tsInicio = agora.getTime() - 30 * 24 * 60 * 60 * 1000;
+  }
+  try {
+    const [{ data: pags }, { data: peds }] = await Promise.all([
+      supabase.from('pagamentos').select('*').gte('ts', tsInicio),
+      supabase.from('mesas').select('*').gte('ts', tsInicio).neq('status', 'cancelado')
+    ]);
+    const pagamentos = pags || [], pedidos = peds || [];
+    const fatTotal   = pagamentos.reduce((s, p) => s + (p.total || 0), 0);
+    const gorjTotal  = pagamentos.reduce((s, p) => s + (p.gorjeta || 0), 0);
+    const nPags      = pagamentos.length;
+    const nPeds      = pedidos.length;
+    const formas     = {};
+    pagamentos.forEach(p => { formas[p.forma] = (formas[p.forma] || 0) + 1; });
+    // Top itens
+    const itensCont = {};
+    pedidos.forEach(p => (p.itens || []).forEach(i => {
+      itensCont[i.name] = (itensCont[i.name] || 0) + (i.qty || 1);
+    }));
+    const topItens = Object.entries(itensCont).sort((a,b) => b[1]-a[1]).slice(0, 8);
+    const fmtR = v => 'R$ ' + v.toFixed(2).replace('.', ',');
+    const formaLabel = { pix: '📱 PIX', dinheiro: '💵 Dinheiro', cartao: '💳 Cartão' };
+    content.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;margin-bottom:1.25rem;">
+        <div class="dash-card"><div class="dash-val">${fmtR(fatTotal)}</div><div class="dash-label">Faturamento</div></div>
+        <div class="dash-card"><div class="dash-val">${fmtR(gorjTotal)}</div><div class="dash-label">Gorjetas</div></div>
+        <div class="dash-card"><div class="dash-val">${fmtR(fatTotal+gorjTotal)}</div><div class="dash-label">Total recebido</div></div>
+        <div class="dash-card"><div class="dash-val">${nPeds}</div><div class="dash-label">Pedidos</div></div>
+      </div>
+      ${nPags > 0 ? `
+      <div style="margin-bottom:1.25rem;">
+        <div style="font-family:var(--font-heading);font-size:0.72rem;color:var(--gold-dark);margin-bottom:0.6rem;border-bottom:1px solid rgba(201,168,76,0.12);padding-bottom:0.3rem;">FORMAS DE PAGAMENTO</div>
+        ${Object.entries(formas).map(([f,n]) => `
+          <div style="display:flex;justify-content:space-between;padding:0.3rem 0;font-size:0.78rem;">
+            <span>${formaLabel[f] || f}</span><span style="color:var(--gold);">${n} pag.</span>
+          </div>`).join('')}
+      </div>` : ''}
+      ${topItens.length > 0 ? `
+      <div>
+        <div style="font-family:var(--font-heading);font-size:0.72rem;color:var(--gold-dark);margin-bottom:0.6rem;border-bottom:1px solid rgba(201,168,76,0.12);padding-bottom:0.3rem;">TOP ITENS</div>
+        ${topItens.map(([nome, qty]) => `
+          <div style="display:flex;justify-content:space-between;padding:0.3rem 0;font-size:0.78rem;">
+            <span>${nome}</span><span style="color:var(--gold);">${qty}×</span>
+          </div>`).join('')}
+      </div>` : ''}
+      ${nPeds === 0 && nPags === 0 ? '<div style="color:var(--fg-muted);font-size:0.8rem;text-align:center;padding:2rem;">Sem dados no período.</div>' : ''}
+    `;
+  } catch(e) {
+    content.innerHTML = '<div class="admin-empty">Erro ao carregar relatórios.</div>';
+    console.warn('Relatórios fetch failed', e);
   }
 }
 

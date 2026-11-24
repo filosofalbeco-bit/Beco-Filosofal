@@ -583,6 +583,22 @@
         <div id="pag-pix-chave" style="color:var(--fg);word-break:break-all;"></div>
         <button onclick="copiarPixChave()" style="margin-top:0.5rem;width:100%;padding:0.3rem;background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.2);border-radius:4px;color:var(--candle);font-size:0.68rem;cursor:pointer;font-family:var(--font-heading);">Copiar chave</button>
       </div>
+      <!-- Gorjeta garçom -->
+      <div style="margin-bottom:0.75rem;padding:0.65rem;background:rgba(201,168,76,0.05);border:1px solid rgba(201,168,76,0.12);border-radius:var(--radius);">
+        <div style="font-family:var(--font-heading);font-size:0.68rem;color:var(--fg-muted);margin-bottom:0.5rem;letter-spacing:0.04em;">GORJETA (opcional)</div>
+        <div style="display:flex;gap:0.4rem;align-items:center;margin-bottom:0.4rem;">
+          <button id="pag-btn-gorjeta10" data-base="0" class="btn-gorjeta-opc" onclick="toggleGorjetaPag10()">10%</button>
+          <span style="font-size:0.7rem;color:var(--fg-muted);">ou:</span>
+          <span style="font-family:var(--font-heading);font-size:0.78rem;color:var(--fg-muted);">R$</span>
+          <input type="number" id="pag-gorjeta-input" min="0" step="0.5" placeholder="0,00"
+            oninput="atualizarGorjetaPag(this.value)"
+            style="flex:1;padding:0.3rem 0.5rem;background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:4px;color:var(--fg);font-family:var(--font-heading);font-size:0.8rem;width:0;box-sizing:border-box;">
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:0.78rem;margin-top:0.3rem;">
+          <span style="font-family:var(--font-heading);color:var(--fg-muted);">Total + gorjeta:</span>
+          <span id="pag-total-gorjeta" style="font-family:var(--font-heading);color:var(--gold);font-weight:700;">R$ 0,00</span>
+        </div>
+      </div>
       <button id="btn-confirmar-pag" onclick="confirmarPagamentoGarcom()" disabled
         style="width:100%;padding:0.75rem;background:linear-gradient(135deg,rgba(45,138,64,0.3),rgba(45,138,64,0.5));border:1px solid #2d8a40;border-radius:var(--radius);color:#3daa52;font-family:var(--font-heading);font-size:0.85rem;cursor:pointer;opacity:0.5;transition:all 0.2s;">
         ✓ Confirmar Pagamento
@@ -632,6 +648,7 @@
         <button class="admin-tab" id="tab-cozinha" onclick="mudarAbaAdmin('cozinha')">🔥 Cozinha</button>
         <button class="admin-tab" id="tab-links" onclick="mudarAbaAdmin('links')">📲 Links</button>
         <button class="admin-tab" id="tab-cardapio" onclick="mudarAbaAdmin('cardapio')">🍽️ Cardápio</button>
+        <button class="admin-tab" id="tab-relatorios" onclick="mudarAbaAdmin('relatorios')">📈 Relatórios</button>
       </div>
 
       <!-- Aba dashboard -->
@@ -693,6 +710,11 @@
       <!-- Aba cardápio -->
       <div id="admin-aba-cardapio" style="display:none;">
         <div id="cardapio-admin-body"></div>
+      </div>
+
+      <!-- Aba relatórios -->
+      <div id="admin-aba-relatorios" style="display:none;">
+        <div id="relatorios-body"></div>
       </div>
     </div>
   </div>

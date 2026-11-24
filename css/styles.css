@@ -1294,6 +1294,18 @@ footer {
   color: #4caf63;
 }
 
+/* Item esgotado no cardápio */
+.item-esgotado { opacity: 0.5; }
+.badge-esgotado {
+  display: inline-block; margin-left: 0.4rem;
+  background: rgba(224,96,96,0.15); border: 1px solid rgba(224,96,96,0.3);
+  color: #e06060; border-radius: 4px; font-size: 0.65rem; padding: 0.1rem 0.4rem;
+  font-family: var(--font-heading); letter-spacing: 0.04em;
+}
+/* Status cancelado no painel de pedidos */
+.status-pill.cancelado { background: rgba(224,96,96,0.15); color: #e06060; }
+.status-item-cancelado { opacity: 0.55; }
+
 /* Destino do item do cardápio (admin) */
 .btn-dest {
   padding: 0.3rem 0.6rem;
