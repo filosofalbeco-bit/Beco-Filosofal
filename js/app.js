@@ -1612,34 +1612,54 @@ async function renderizarGarcomGestao() {
       .order('ts', { ascending: true });
     const pedidos = data || [];
 
-    if (pedidos.length === 0) {
-      body.innerHTML = '<div class="admin-empty">Nenhuma mesa ativa hoje.</div>';
-      return;
-    }
-
     const isMesaNum = m => !isNaN(parseInt(m));
     const mesaLabel = m => isMesaNum(m) ? `Mesa ${m}` : m === 'ENTREGA' ? 'Entrega' : 'Retirada';
     const mesaIcon  = m => isMesaNum(m) ? '🪄' : m === 'ENTREGA' ? '🚴' : '🏃';
 
+    // Kanban: só pedidos de mesa (não ENTREGA/RETIRADA)
+    const mesaPeds  = pedidos.filter(p => isMesaNum(p.mesa));
+    const emPreparo = mesaPeds.filter(p => ['pendente','preparando'].includes(p.status));
+    const prontos   = mesaPeds.filter(p => p.status === 'pronto');
+
+    const kanbanHtml = `
+      <div class="kanban-board">
+        <div class="kanban-col kanban-col-preparo">
+          <div class="kanban-col-header">⏳ Em Preparo <span class="kh-count">${emPreparo.length}</span></div>
+          <div class="kanban-col-body">
+            ${emPreparo.length === 0 ? '<div class="kanban-empty">Nenhum</div>'
+              : emPreparo.map(p => mkKanbanCard(p, `<div class="kanban-card-info">${p.status === 'preparando' ? '🔥 Preparando' : '⏳ Aguardando cozinha'}</div>`)).join('')}
+          </div>
+        </div>
+        <div class="kanban-col kanban-col-entregar">
+          <div class="kanban-col-header">🔔 A Entregar <span class="kh-count">${prontos.length}</span></div>
+          <div class="kanban-col-body">
+            ${prontos.length === 0 ? '<div class="kanban-empty">Nenhum</div>'
+              : prontos.map(p => mkKanbanCard(p, `<button class="btn-kanban btn-entregar-g" onclick="marcarEntregueGarcomGestao('${p.id}', this)">✓ Entregar</button>`)).join('')}
+          </div>
+        </div>
+      </div>`;
+
+    // Mapa de mesas: exclui mesas onde todos os pedidos já foram entregues/cancelados
     const porMesa = {};
     pedidos.forEach(p => { if (!porMesa[p.mesa]) porMesa[p.mesa] = []; porMesa[p.mesa].push(p); });
 
-    const cards = Object.entries(porMesa)
+    const ativasPorMesa = Object.entries(porMesa)
+      .filter(([_, peds]) => peds.some(p => !['entregue','cancelado'].includes(p.status)))
       .sort((a, b) => {
         const aPronto = a[1].some(p => p.status === 'pronto');
         const bPronto = b[1].some(p => p.status === 'pronto');
         if (aPronto !== bPronto) return aPronto ? -1 : 1;
         return a[0].localeCompare(b[0], undefined, { numeric: true });
-      })
-      .map(([mesa, peds]) => {
+      });
+
+    let mesaMapHtml = '';
+    if (ativasPorMesa.length > 0) {
+      const cards = ativasPorMesa.map(([mesa, peds]) => {
         const total  = peds.reduce((s, p) => s + (p.total || 0), 0);
         const ativas = peds.filter(p => !['entregue','cancelado'].includes(p.status));
         const temPronto = ativas.some(p => p.status === 'pronto');
         const temPrep   = ativas.some(p => ['preparando','pendente'].includes(p.status));
-        const statusTxt = ativas.length === 0
-          ? '✓ Conta a fechar'
-          : temPronto ? '🔔 Pronto p/ entregar'
-          : temPrep   ? '🔥 Em preparo' : '';
+        const statusTxt = temPronto ? '🔔 Pronto p/ entregar' : temPrep ? '🔥 Em preparo' : '';
         const cls = temPronto ? 'mc-pronto' : temPrep ? 'mc-preparo' : '';
         return `
           <div class="mesa-card ${cls}">
@@ -1649,11 +1669,36 @@ async function renderizarGarcomGestao() {
             <button class="btn-fechar-conta" onclick="abrirFecharConta('${mesa}')">💳 Fechar conta</button>
           </div>`;
       });
+      mesaMapHtml = `
+        <div style="margin-top:1.5rem;">
+          <div style="font-family:var(--font-heading);font-size:0.72rem;color:var(--fg-muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:0.75rem;">🗺️ Mapa de Mesas</div>
+          <div class="mesas-grid">${cards.join('')}</div>
+        </div>`;
+    }
 
-    body.innerHTML = `<div class="mesas-grid">${cards.join('')}</div>`;
+    if (emPreparo.length === 0 && prontos.length === 0 && ativasPorMesa.length === 0) {
+      body.innerHTML = '<div class="admin-empty">Nenhuma mesa ativa hoje.</div>';
+      return;
+    }
+
+    body.innerHTML = kanbanHtml + mesaMapHtml;
   } catch(e) {
     body.innerHTML = '<div class="admin-empty">Erro ao carregar mesas.</div>';
     console.warn('renderizarGarcomGestao failed', e);
+  }
+}
+
+async function marcarEntregueGarcomGestao(pedidoId, btn) {
+  btn.disabled = true; btn.textContent = '...';
+  try {
+    const { error } = await supabase.from('mesas').update({ status: 'entregue' }).eq('id', pedidoId);
+    if (error) throw error;
+    renderizarGarcomGestao();
+    renderizarMapaMesas();
+    renderizarGarcom();
+  } catch(e) {
+    console.warn('Entregar (gestão) failed', e);
+    btn.disabled = false; btn.textContent = '✓ Entregar';
   }
 }
 
@@ -2138,6 +2183,7 @@ async function confirmarPagamentoGarcom() {
     mostrarToast('✓ Pagamento registrado!');
     renderizarMapaMesas();
     renderizarGarcom();
+    renderizarGarcomGestao();
   } catch(e) {
     console.warn('Pagamento failed', e);
     btn.disabled = false; btn.textContent = '✓ Confirmar Pagamento';
