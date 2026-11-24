@@ -1606,43 +1606,54 @@ async function renderizarGarcomGestao() {
   if (!body) return;
   if (!supabase) { body.innerHTML = '<div class="admin-empty">⏳ Conectando...</div>'; return; }
   try {
+    const startOfDay = new Date(); startOfDay.setHours(0,0,0,0);
     const { data } = await supabase.from('mesas').select('*')
-      .in('status', ['pendente', 'preparando', 'pronto'])
+      .gte('ts', startOfDay.getTime())
       .order('ts', { ascending: true });
     const pedidos = data || [];
-    const prontos   = pedidos.filter(p => p.status === 'pronto');
-    const emPreparo = pedidos.filter(p => p.status === 'pendente' || p.status === 'preparando');
-    body.innerHTML = `
-      <div class="kanban-board">
-        <div class="kanban-col kanban-col-preparo">
-          <div class="kanban-col-header">⏳ Em Preparo <span class="kh-count">${emPreparo.length}</span></div>
-          <div class="kanban-col-body">
-            ${emPreparo.length === 0 ? '<div class="kanban-empty">Nenhum</div>'
-              : emPreparo.map(p => mkKanbanCard(p, `<div class="kanban-card-info">${p.status === 'preparando' ? '🔥 Preparando' : '⏳ Aguardando cozinha'}</div>`)).join('')}
-          </div>
-        </div>
-        <div class="kanban-col kanban-col-entregar">
-          <div class="kanban-col-header">🔔 A Entregar <span class="kh-count">${prontos.length}</span></div>
-          <div class="kanban-col-body">
-            ${prontos.length === 0 ? '<div class="kanban-empty">Nenhum</div>'
-              : prontos.map(p => mkKanbanCard(p, `<button class="btn-kanban btn-entregar-g" onclick="marcarEntregueGarcomGestao('${p.id}', this)">✓ Entregar</button>`)).join('')}
-          </div>
-        </div>
-      </div>`;
-  } catch(e) {
-    body.innerHTML = '<div class="admin-empty">Erro ao carregar.</div>';
-    console.warn('renderizarGarcomGestao failed', e);
-  }
-}
 
-async function marcarEntregueGarcomGestao(id, btn) {
-  if (btn) { btn.disabled = true; btn.textContent = '...'; }
-  try {
-    await supabase.from('mesas').update({ status: 'entregue' }).eq('id', id);
-    renderizarGarcomGestao();
+    if (pedidos.length === 0) {
+      body.innerHTML = '<div class="admin-empty">Nenhuma mesa ativa hoje.</div>';
+      return;
+    }
+
+    const isMesaNum = m => !isNaN(parseInt(m));
+    const mesaLabel = m => isMesaNum(m) ? `Mesa ${m}` : m === 'ENTREGA' ? 'Entrega' : 'Retirada';
+    const mesaIcon  = m => isMesaNum(m) ? '🪄' : m === 'ENTREGA' ? '🚴' : '🏃';
+
+    const porMesa = {};
+    pedidos.forEach(p => { if (!porMesa[p.mesa]) porMesa[p.mesa] = []; porMesa[p.mesa].push(p); });
+
+    const cards = Object.entries(porMesa)
+      .sort((a, b) => {
+        const aPronto = a[1].some(p => p.status === 'pronto');
+        const bPronto = b[1].some(p => p.status === 'pronto');
+        if (aPronto !== bPronto) return aPronto ? -1 : 1;
+        return a[0].localeCompare(b[0], undefined, { numeric: true });
+      })
+      .map(([mesa, peds]) => {
+        const total  = peds.reduce((s, p) => s + (p.total || 0), 0);
+        const ativas = peds.filter(p => !['entregue','cancelado'].includes(p.status));
+        const temPronto = ativas.some(p => p.status === 'pronto');
+        const temPrep   = ativas.some(p => ['preparando','pendente'].includes(p.status));
+        const statusTxt = ativas.length === 0
+          ? '✓ Conta a fechar'
+          : temPronto ? '🔔 Pronto p/ entregar'
+          : temPrep   ? '🔥 Em preparo' : '';
+        const cls = temPronto ? 'mc-pronto' : temPrep ? 'mc-preparo' : '';
+        return `
+          <div class="mesa-card ${cls}">
+            <div class="mesa-card-num">${mesaIcon(mesa)} ${mesaLabel(mesa)}</div>
+            <div class="mesa-card-total">R$ ${total.toFixed(2).replace('.', ',')}</div>
+            <div class="mesa-card-status">${statusTxt}</div>
+            <button class="btn-fechar-conta" onclick="abrirFecharConta('${mesa}')">💳 Fechar conta</button>
+          </div>`;
+      });
+
+    body.innerHTML = `<div class="mesas-grid">${cards.join('')}</div>`;
   } catch(e) {
-    console.warn('Entregar failed', e);
-    if (btn) { btn.disabled = false; btn.textContent = '✓ Entregar'; }
+    body.innerHTML = '<div class="admin-empty">Erro ao carregar mesas.</div>';
+    console.warn('renderizarGarcomGestao failed', e);
   }
 }
 
@@ -2329,6 +2340,34 @@ async function atualizarDashboard() {
     if (blocoRetirada) {
       set('dash-retirada-num', retiradaPronta);
       blocoRetirada.style.display = retiradaPronta > 0 ? 'flex' : 'none';
+    }
+
+    // Chips de mesas abertas
+    const chipsWrap = document.getElementById('dash-mesas-abertas');
+    const chipsEl   = document.getElementById('dash-mesas-chips');
+    if (chipsEl) {
+      const porMesa = {};
+      pedidos.filter(p => isMesaNum(p.mesa) && !['entregue','cancelado'].includes(p.status))
+        .forEach(p => { if (!porMesa[p.mesa]) porMesa[p.mesa] = []; porMesa[p.mesa].push(p); });
+      const mesas = Object.entries(porMesa).sort((a,b) => parseInt(a[0]) - parseInt(b[0]));
+      if (mesas.length === 0) {
+        if (chipsWrap) chipsWrap.style.display = 'none';
+      } else {
+        if (chipsWrap) chipsWrap.style.display = 'block';
+        chipsEl.innerHTML = mesas.map(([mesa, peds]) => {
+          const temPronto = peds.some(p => p.status === 'pronto');
+          const temPrep   = peds.some(p => ['preparando','pendente'].includes(p.status));
+          const bg    = temPronto ? 'rgba(45,138,64,0.2)'  : temPrep ? 'rgba(224,140,50,0.15)' : 'rgba(255,255,255,0.05)';
+          const bord  = temPronto ? '#2d8a40'               : temPrep ? '#e08c32'               : 'rgba(255,255,255,0.15)';
+          const cor   = temPronto ? '#3daa52'               : temPrep ? '#e08c32'               : 'var(--fg-muted)';
+          const icon  = temPronto ? '🔔'                    : temPrep ? '🔥'                    : '🪑';
+          const total = peds.reduce((s,p) => s+(p.total||0), 0);
+          return `<button onclick="mudarAbaAdmin('garcom-gestao')"
+            style="background:${bg};border:1px solid ${bord};border-radius:8px;padding:0.45rem 0.75rem;color:${cor};font-family:var(--font-heading);font-size:0.78rem;cursor:pointer;text-align:left;line-height:1.4;">
+            ${icon} Mesa ${mesa}<br><span style="font-size:0.68rem;opacity:0.8;">R$ ${total.toFixed(2).replace('.',',')}</span>
+          </button>`;
+        }).join('');
+      }
     }
 
     const ref = document.querySelector('.dash-refresh');
