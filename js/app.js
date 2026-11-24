@@ -1328,8 +1328,10 @@ async function renderizarMapaMesas() {
         return a[0].localeCompare(b[0], undefined, {numeric:true});
       })
       .map(([mesa, peds]) => {
-        const total = peds.reduce((s, p) => s + (p.total||0), 0);
-        const ativas = peds.filter(p => !['entregue','cancelado'].includes(p.status));
+        const lastPag = ultimoPagTs[String(mesa)] || 0;
+        const sessaoPeds = peds.filter(p => p.ts > lastPag);
+        const total = sessaoPeds.reduce((s, p) => s + (p.total||0), 0);
+        const ativas = sessaoPeds.filter(p => !['entregue','cancelado'].includes(p.status));
         const temPronto = ativas.some(p => p.status === 'pronto');
         const temPrep   = ativas.some(p => ['preparando','pendente'].includes(p.status));
         const statusTxt = ativas.length === 0
@@ -1685,8 +1687,10 @@ async function renderizarGarcomGestao() {
     let mesaMapHtml = '';
     if (ativasPorMesa.length > 0) {
       const cards = ativasPorMesa.map(([mesa, peds]) => {
-        const total  = peds.reduce((s, p) => s + (p.total || 0), 0);
-        const ativas = peds.filter(p => !['entregue','cancelado'].includes(p.status));
+        const lastPag2 = ultimoPagTs[String(mesa)] || 0;
+        const sessaoPeds = peds.filter(p => p.ts > lastPag2);
+        const total  = sessaoPeds.reduce((s, p) => s + (p.total || 0), 0);
+        const ativas = sessaoPeds.filter(p => !['entregue','cancelado'].includes(p.status));
         const temPronto = ativas.some(p => p.status === 'pronto');
         const temPrep   = ativas.some(p => ['preparando','pendente'].includes(p.status));
         const statusTxt = ativas.length === 0
