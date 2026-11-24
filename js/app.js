@@ -461,7 +461,10 @@ function sessaoMesaInicio() {
   const corte = new Date();
   corte.setHours(INICIO_TURNO, 0, 0, 0);
   if (agora < corte) corte.setDate(corte.getDate() - 1); // antes das 5h → dia anterior
-  return corte.getTime();
+  // Usa o timestamp de quando este cliente escaneou o QR code, se disponível,
+  // para isolar a sessão dele de clientes anteriores na mesma mesa no mesmo dia
+  const sessTs = mesaAtiva ? parseInt(localStorage.getItem('bf_sess_' + mesaAtiva) || '0', 10) : 0;
+  return Math.max(corte.getTime(), sessTs);
 }
 
 // Detectar modo mesa via ?mesa=TOKEN na URL
