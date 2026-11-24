@@ -634,6 +634,33 @@ async function atualizarStatusEncerrar() {
   } catch(e) { console.warn('DB query failed', e); }
 }
 
+let _gorjetaVal = 0;
+
+function toggleGorjeta10() {
+  const btn   = document.getElementById('btn-gorjeta-10');
+  const input = document.getElementById('gorjeta-input');
+  const base  = parseFloat(btn?.dataset.base || 0);
+  const jaAtivo = Math.abs(_gorjetaVal - base) < 0.01 && _gorjetaVal > 0;
+  _gorjetaVal = jaAtivo ? 0 : base;
+  if (input) input.value = _gorjetaVal > 0 ? _gorjetaVal.toFixed(2) : '';
+  _atualizarUIGorjeta(base);
+}
+
+function atualizarGorjeta(val) {
+  _gorjetaVal = Math.max(0, parseFloat(val) || 0);
+  const btn  = document.getElementById('btn-gorjeta-10');
+  const base = parseFloat(btn?.dataset.base || 0);
+  _atualizarUIGorjeta(base);
+}
+
+function _atualizarUIGorjeta(base) {
+  const btn     = document.getElementById('btn-gorjeta-10');
+  const totalEl = document.getElementById('status-total-final');
+  const totalBase = parseFloat(document.getElementById('status-total-base')?.dataset.val || 0);
+  if (btn) btn.classList.toggle('gorjeta-ativo', _gorjetaVal > 0 && Math.abs(_gorjetaVal - base) < 0.01);
+  if (totalEl) totalEl.textContent = 'R$ ' + (totalBase + _gorjetaVal).toFixed(2).replace('.', ',');
+}
+
 async function encerrarConta() {
   if (!mesaAtiva || !dbRef) return;
   try {
@@ -649,13 +676,11 @@ async function encerrarConta() {
       mostrarToast('Nenhum pedido registrado para esta mesa.');
       return;
     }
-    // Calcular total acumulado
     const totalGeral = pedidos.reduce((s, p) => s + p.total, 0);
     const codigo = pedidos[0].id;
     fecharCarrinho();
-    // Encerrar sessão — próximo cliente começa do zero
     localStorage.removeItem('bf_sess_' + mesaAtiva);
-    abrirPix(codigo, totalGeral);
+    abrirPix(codigo, totalGeral + _gorjetaVal);
   } catch(e) {
     console.warn('DB error on encerrar', e);
     mostrarToast('Erro ao verificar pedidos. Tente novamente.');
@@ -1695,13 +1720,13 @@ async function renderizarStatusPainel() {
       return;
     }
 
-    const totalGeral = pedidos.reduce((s, p) => s + (p.total || 0), 0);
-    const pendentes  = pedidos.filter(p => p.status !== 'entregue').length;
+    const totalGeral   = pedidos.reduce((s, p) => s + (p.total || 0), 0);
+    const pendentes    = pedidos.filter(p => p.status !== 'entregue').length;
     const tudoEntregue = pendentes === 0;
+    const gorjeta10    = Math.round(totalGeral * 0.10 * 100) / 100;
+    _gorjetaVal = 0; // resetar ao reabrir painel
 
-    body.innerHTML = pedidos.map(p => {
-      const isPrep = p.status === 'pendente' || p.status === 'preparando';
-      return `
+    body.innerHTML = pedidos.map(p => `
       <div class="status-item">
         <div class="status-item-header">
           <span class="status-item-code">${p.id} · ${new Date(p.ts).toLocaleTimeString('pt-BR')}</span>
@@ -1711,13 +1736,34 @@ async function renderizarStatusPainel() {
         </div>
         <div class="status-item-itens">${p.itens.map(i => `${i.name} ×${i.qty}`).join(' · ')}</div>
         <div class="status-item-meta">R$ ${p.total.toFixed(2).replace('.', ',')}${p.obs ? ' · ' + p.obs : ''}</div>
-      </div>`;
-    }).join('') + `
+      </div>`).join('') + `
       <div style="margin-top:1.5rem;padding-top:1rem;border-top:1px solid rgba(201,168,76,0.2);">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
           <span style="font-family:var(--font-heading);font-size:0.78rem;color:var(--fg-muted);">Total consumido</span>
-          <span style="font-family:var(--font-heading);font-size:1rem;color:var(--gold);">R$ ${totalGeral.toFixed(2).replace('.', ',')}</span>
+          <span style="font-family:var(--font-heading);font-size:0.9rem;color:var(--gold);" id="status-total-base" data-val="${totalGeral.toFixed(2)}">R$ ${totalGeral.toFixed(2).replace('.', ',')}</span>
         </div>
+
+        <!-- Gorjeta -->
+        <div style="margin-bottom:1rem;padding:0.75rem;background:rgba(201,168,76,0.05);border-radius:var(--radius);border:1px solid rgba(201,168,76,0.12);">
+          <div style="font-family:var(--font-heading);font-size:0.72rem;color:var(--fg-muted);margin-bottom:0.6rem;letter-spacing:0.04em;">GORJETA (opcional)</div>
+          <div style="display:flex;gap:0.5rem;align-items:center;margin-bottom:0.5rem;">
+            <button id="btn-gorjeta-10" data-base="${gorjeta10.toFixed(2)}" onclick="toggleGorjeta10()"
+              class="btn-gorjeta-opc">10% — R$ ${gorjeta10.toFixed(2).replace('.', ',')}</button>
+            <span style="font-size:0.72rem;color:var(--fg-muted);">ou valor livre:</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:0.4rem;">
+            <span style="font-family:var(--font-heading);font-size:0.8rem;color:var(--fg-muted);">R$</span>
+            <input type="number" id="gorjeta-input" min="0" step="0.5" placeholder="0,00"
+              oninput="atualizarGorjeta(this.value)"
+              style="flex:1;padding:0.4rem 0.6rem;background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:calc(var(--radius) - 2px);color:var(--fg);font-family:var(--font-heading);font-size:0.85rem;width:100%;box-sizing:border-box;">
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+          <span style="font-family:var(--font-heading);font-size:0.82rem;color:var(--fg);">Total final</span>
+          <span style="font-family:var(--font-heading);font-size:1.05rem;color:var(--gold);font-weight:700;" id="status-total-final">R$ ${totalGeral.toFixed(2).replace('.', ',')}</span>
+        </div>
+
         ${!tudoEntregue ? `<div style="font-size:0.72rem;color:var(--fg-muted);text-align:center;margin-bottom:0.75rem;">⏳ Aguardando todos os itens serem entregues...</div>` : ''}
         <button onclick="encerrarConta()" ${tudoEntregue ? '' : 'disabled'}
           style="width:100%;padding:0.85rem;border:none;border-radius:var(--radius);background:${tudoEntregue ? 'linear-gradient(135deg,#1a4a1a,#2d6a2d)' : 'rgba(201,168,76,0.08)'};color:${tudoEntregue ? '#fff' : 'var(--fg-muted)'};font-family:var(--font-heading);font-size:0.9rem;cursor:${tudoEntregue ? 'pointer' : 'not-allowed'};letter-spacing:0.05em;">

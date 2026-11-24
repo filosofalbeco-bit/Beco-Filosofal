@@ -1237,6 +1237,26 @@ footer {
   color: var(--gold);
 }
 
+/* Gorjeta */
+.btn-gorjeta-opc {
+  padding: 0.35rem 0.75rem;
+  border: 1px solid rgba(201,168,76,0.25);
+  border-radius: calc(var(--radius) - 2px);
+  background: none;
+  color: var(--fg-muted);
+  font-family: var(--font-heading);
+  font-size: 0.72rem;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.btn-gorjeta-opc.gorjeta-ativo {
+  background: rgba(45,138,64,0.2);
+  border-color: #2d8a40;
+  color: #4caf63;
+}
+
 /* Destino do item do cardápio (admin) */
 .btn-dest {
   padding: 0.3rem 0.6rem;
