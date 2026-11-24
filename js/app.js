@@ -414,6 +414,11 @@ function renderCartItems() {
     document.getElementById('cep-section').style.display = 'none';
     document.getElementById('frete-row').style.display   = 'none';
     freteVal = 0;
+    // Sincronizar estado visual dos botões mesa/viagem
+    document.getElementById('opt-mesa')?.classList.toggle('active', mesaMode === 'mesa');
+    document.getElementById('opt-viagem')?.classList.toggle('active', mesaMode === 'viagem');
+    const embRow = document.getElementById('embalagem-row');
+    if (embRow) embRow.style.display = mesaMode === 'viagem' ? 'flex' : 'none';
     // Mostrar botão encerrar conta e ocultar confirmar (na mesa, o confirmar envia pra cozinha)
     const btnConf = document.getElementById('btn-confirmar');
     const btnEnc = document.getElementById('btn-encerrar');
@@ -452,6 +457,8 @@ function changeCartQty(id, delta) {
 let deliveryMode = 'entrega';
 let freteVal = 0;
 let mesaAtiva = null;
+let mesaMode = 'mesa'; // 'mesa' ou 'viagem' (apenas quando mesaAtiva)
+const PRECO_EMBALAGEM = 2.00;
 
 // Retorna o timestamp de início do "dia do restaurante" (5h da manhã).
 // Se for antes das 5h, ainda é o turno do dia anterior.
@@ -517,6 +524,15 @@ function setDelivery(mode) {
   validarPedido();
 }
 
+function setMesaMode(mode) {
+  mesaMode = mode;
+  document.getElementById('opt-mesa')?.classList.toggle('active', mode === 'mesa');
+  document.getElementById('opt-viagem')?.classList.toggle('active', mode === 'viagem');
+  const embRow = document.getElementById('embalagem-row');
+  if (embRow) embRow.style.display = mode === 'viagem' ? 'flex' : 'none';
+  atualizarTotais();
+}
+
 function formatarCEP(el) {
   let v = el.value.replace(/\D/g, '').substring(0, 8);
   if (v.length > 5) v = v.slice(0, 5) + '-' + v.slice(5);
@@ -549,7 +565,8 @@ function calcularFrete() {
 
 function atualizarTotais() {
   const subtotal = Object.values(cart).reduce((s, i) => s + i.price * i.qty, 0);
-  const total = subtotal + freteVal;
+  const embalagemVal = (mesaAtiva && mesaMode === 'viagem') ? PRECO_EMBALAGEM : 0;
+  const total = subtotal + freteVal + embalagemVal;
   document.getElementById('subtotal-val').textContent = 'R$ ' + subtotal.toFixed(2).replace('.',',');
   document.getElementById('frete-val').textContent    = freteVal > 0 ? 'R$ ' + freteVal.toFixed(2).replace('.',',') : deliveryMode === 'retirada' ? 'Grátis' : '—';
   document.getElementById('total-val').textContent    = 'R$ ' + total.toFixed(2).replace('.',',');
@@ -600,7 +617,8 @@ function gerarCodigoPedido() {
 async function confirmarPedido() {
   if (Object.keys(cart).length === 0) return;
   const subtotal = Object.values(cart).reduce((s, i) => s + i.price * i.qty, 0);
-  const total = subtotal + freteVal;
+  const embalagemVal = (mesaAtiva && mesaMode === 'viagem') ? PRECO_EMBALAGEM : 0;
+  const total = subtotal + freteVal + embalagemVal;
 
   if (mesaAtiva) {
     // Modo mesa: salvar pedido no DB e enviar ao WhatsApp SEM PIX
@@ -640,10 +658,15 @@ async function confirmarPedidoMesa(total) {
     const itens = itensPorDestino[dest];
     const subtotal = itens.reduce((s, i) => s + i.price * i.qty, 0);
     const codigo = gerarCodigoPedido();
+    const isViagem = mesaMode === 'viagem';
+    // Adicionar embalagem ao total do primeiro destino (cozinha) ou ao único destino
+    const isFirstDest = offset === 0;
+    const embalagemExtra = (isViagem && isFirstDest) ? PRECO_EMBALAGEM : 0;
     const pedido = {
-      id: codigo, mesa: mesaAtiva, itens, total: subtotal, obs,
+      id: codigo, mesa: mesaAtiva, itens, total: subtotal + embalagemExtra, obs,
       status: dest === 'garcom' ? 'pronto' : 'pendente',
       destino: dest,
+      viagem: isViagem,
       ts: ts + offset
     };
     try {
@@ -2280,10 +2303,11 @@ function imprimirComanda() {
 function mkKanbanCard(p, btnHtml) {
   const isMesaNum = (m) => !isNaN(parseInt(m));
   const mesaLabel = isMesaNum(p.mesa) ? `Mesa ${p.mesa}` : p.mesa === 'ENTREGA' ? 'Entrega' : 'Retirada';
+  const viagemBadge = p.viagem ? `<span style="display:inline-block;margin-left:0.4em;background:rgba(100,160,255,0.15);color:#7ab8f5;border:1px solid rgba(100,160,255,0.35);border-radius:4px;font-size:0.68rem;padding:0.1em 0.4em;font-weight:600;letter-spacing:0.03em;">🧳 VIAGEM</span>` : '';
   return `
     <div class="kanban-card">
       <div class="kanban-card-id">#${p.id} · ${new Date(p.ts).toLocaleTimeString('pt-BR')}</div>
-      <div class="kanban-card-mesa">📍 ${mesaLabel}</div>
+      <div class="kanban-card-mesa">📍 ${mesaLabel}${viagemBadge}</div>
       <div class="kanban-card-items">${p.itens.map(i => `${i.qty}× ${i.name}`).join('<br>')}</div>
       ${p.obs ? `<div class="kanban-card-obs">📝 ${p.obs}</div>` : ''}
       ${btnHtml}

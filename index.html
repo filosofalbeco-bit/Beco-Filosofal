@@ -399,9 +399,12 @@
           <button class="delivery-opt" id="opt-retirada" onclick="setDelivery('retirada')">🏃 Retirada</button>
         </div>
 
-        <!-- Badge de mesa (modo mesa) -->
+        <!-- Modo mesa: toggle Mesa / Viagem -->
         <div id="mesa-info" style="display:none; margin-bottom:1rem;">
-          <span style="font-family:var(--font-heading);font-size:0.8rem;color:var(--gold);">🪄 Mesa <span id="mesa-numero"></span></span>
+          <div class="delivery-opts">
+            <button class="delivery-opt active" id="opt-mesa" onclick="setMesaMode('mesa')">🍽️ Mesa <span id="mesa-numero"></span></button>
+            <button class="delivery-opt" id="opt-viagem" onclick="setMesaMode('viagem')">🧳 Viagem</button>
+          </div>
         </div>
 
         <!-- CEP -->
@@ -433,6 +436,9 @@
       </div>
       <div class="cart-total-row" id="frete-row">
         <span>Frete</span><span id="frete-val">—</span>
+      </div>
+      <div class="cart-total-row" id="embalagem-row" style="display:none;">
+        <span>Embalagem</span><span id="embalagem-val">R$ 2,00</span>
       </div>
       <div class="cart-total-row final">
         <span>Total</span><span id="total-val">R$ 0,00</span>
