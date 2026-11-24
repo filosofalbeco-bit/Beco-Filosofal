@@ -323,14 +323,14 @@ function abrirPickerOpcao(id, name, price, opcoes, itemEl) {
   const rect = itemEl.getBoundingClientRect();
   const btns = opcoes.map(op =>
     `<button onclick="addItemComOpcao('${id}','${name.replace(/'/g,"\\'")}',${price},'${op.replace(/'/g,"\\'")}')"
-      style="display:block;width:100%;text-align:left;padding:0.5rem 0.75rem;background:none;border:none;border-bottom:1px solid rgba(255,255,255,0.07);color:var(--text);cursor:pointer;font-size:0.9rem;"
-      onmouseover="this.style.background='rgba(201,168,76,0.12)'" onmouseout="this.style.background='none'">
+      style="display:block;width:100%;text-align:left;padding:0.5rem 0.75rem;background:none;border:none;border-bottom:1px solid rgba(255,255,255,0.08);color:#e8dcc8;cursor:pointer;font-size:0.9rem;"
+      onmouseover="this.style.background='rgba(201,168,76,0.18)'" onmouseout="this.style.background='none'">
       ${op}
     </button>`).join('');
   const div = document.createElement('div');
   div.id = 'opcao-picker';
-  div.style.cssText = `position:fixed;z-index:8000;background:var(--bg-card);border:1px solid var(--accent);border-radius:var(--radius);min-width:160px;box-shadow:0 8px 24px rgba(0,0,0,0.5);overflow:hidden;`;
-  div.innerHTML = `<div style="padding:0.4rem 0.75rem;font-size:0.72rem;color:var(--text-muted);border-bottom:1px solid rgba(255,255,255,0.1);">Escolha uma opção</div>${btns}`;
+  div.style.cssText = `position:fixed;z-index:8000;background:#151928;border:1px solid #c9a84c;border-radius:8px;min-width:160px;box-shadow:0 8px 24px rgba(0,0,0,0.7);overflow:hidden;`;
+  div.innerHTML = `<div style="padding:0.4rem 0.75rem;font-size:0.72rem;color:rgba(232,220,200,0.55);border-bottom:1px solid rgba(255,255,255,0.1);">Escolha uma opção</div>${btns}`;
   document.body.appendChild(div);
   // position below the item
   const top  = Math.min(rect.bottom + 4, window.innerHeight - div.offsetHeight - 8);
@@ -2596,7 +2596,7 @@ async function renderizarCardapioAdmin() {
                 placeholder="Descrição">
               <input id="edit-opcoes-${item.id}" type="text" value="${(item.opcoes||[]).join(', ').replace(/"/g,'&quot;')}"
                 style="width:100%;margin-bottom:0.4rem;padding:0.4rem;background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:4px;color:var(--fg);font-size:0.8rem;box-sizing:border-box;"
-                placeholder="Variações separadas por vírgula (ex: P / M / G  ou  com gás / sem gás)">
+                placeholder="Variações separadas por vírgula (ex: P, M, G  ou  com gás, sem gás)">
               <div style="display:flex;gap:0.4rem;margin-bottom:0.4rem;align-items:center;">
                 <input id="edit-foto-${item.id}" type="url" value="${(item.foto_url||'').replace(/"/g,'&quot;')}"
                   style="flex:1;padding:0.4rem;background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:4px;color:var(--fg);font-size:0.8rem;box-sizing:border-box;"
