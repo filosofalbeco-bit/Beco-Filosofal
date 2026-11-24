@@ -873,6 +873,12 @@ ${obs ? '\nObs: ' + obs : ''}
     } catch(e) { console.warn('DB save external failed', e); }
   }
   window.open(`https://wa.me/${WPP_NUM}?text=${msg}`, '_blank');
+  // Limpar carrinho após envio do comprovante
+  Object.keys(cart).forEach(k => delete cart[k]);
+  document.querySelectorAll('.scroll-item .qty-num').forEach(el => el.textContent = '0');
+  atualizarCarrinho();
+  fecharPix();
+  mostrarToast('✓ Pedido enviado! Aguarde a confirmação.');
 }
 
 /* =====================================================
@@ -2302,6 +2308,7 @@ async function atualizarDashboard() {
     const fatHoje       = pedidos.reduce((s, p) => s + (p.total || 0), 0);
 
     const aguardandoPagamento = pedidos.filter(p => p.status === 'aguardando').length;
+    const retiradaPronta      = pedidos.filter(p => p.status === 'pronto' && p.mesa === 'RETIRADA').length;
 
     const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
     set('dash-mesas-ativas', mesasAtivas.size);
@@ -2317,6 +2324,11 @@ async function atualizarDashboard() {
     if (blocoAguardando) {
       set('dash-aguardando-num', aguardandoPagamento);
       blocoAguardando.style.display = aguardandoPagamento > 0 ? 'flex' : 'none';
+    }
+    const blocoRetirada = document.getElementById('dash-retirada-bloco');
+    if (blocoRetirada) {
+      set('dash-retirada-num', retiradaPronta);
+      blocoRetirada.style.display = retiradaPronta > 0 ? 'flex' : 'none';
     }
 
     const ref = document.querySelector('.dash-refresh');

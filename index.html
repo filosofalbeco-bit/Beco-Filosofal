@@ -705,12 +705,18 @@
 
       <!-- Aba dashboard -->
       <div id="admin-aba-dashboard">
-        <!-- Alerta aguardando confirmação -->
-        <div id="dash-aguardando-bloco" style="display:none;background:rgba(224,140,50,0.12);border:1px solid rgba(224,140,50,0.4);border-radius:var(--radius);padding:0.75rem 1rem;margin-bottom:1rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;">
+        <!-- Alertas operacionais -->
+        <div id="dash-aguardando-bloco" style="display:none;background:rgba(224,140,50,0.12);border:1px solid rgba(224,140,50,0.4);border-radius:var(--radius);padding:0.75rem 1rem;margin-bottom:0.6rem;align-items:center;justify-content:space-between;gap:1rem;">
           <div>
             <span style="font-family:var(--font-heading);color:#e08c32;font-size:0.95rem;">⚠️ <span id="dash-aguardando-num">0</span> pedido(s) aguardando confirmação de pagamento</span>
           </div>
           <button onclick="mudarAbaAdmin('caixa-gestao')" style="padding:0.4rem 0.75rem;background:rgba(224,140,50,0.2);border:1px solid rgba(224,140,50,0.5);border-radius:6px;color:#e08c32;font-size:0.8rem;cursor:pointer;white-space:nowrap;">Ver no Caixa →</button>
+        </div>
+        <div id="dash-retirada-bloco" style="display:none;background:rgba(45,138,64,0.1);border:1px solid rgba(45,138,64,0.4);border-radius:var(--radius);padding:0.75rem 1rem;margin-bottom:0.6rem;align-items:center;justify-content:space-between;gap:1rem;">
+          <div>
+            <span style="font-family:var(--font-heading);color:#3daa52;font-size:0.95rem;">🏃 <span id="dash-retirada-num">0</span> pedido(s) prontos aguardando retirada</span>
+          </div>
+          <button onclick="mudarAbaAdmin('caixa-gestao')" style="padding:0.4rem 0.75rem;background:rgba(45,138,64,0.2);border:1px solid rgba(45,138,64,0.5);border-radius:6px;color:#3daa52;font-size:0.8rem;cursor:pointer;white-space:nowrap;">Ver no Caixa →</button>
         </div>
         <div class="dash-grid">
           <div class="dash-card">
