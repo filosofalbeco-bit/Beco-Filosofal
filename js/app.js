@@ -1058,13 +1058,19 @@ async function verificarSenhaPainel(role) {
   const errEl = document.getElementById(`${role}-senha-err`);
   const btn   = document.getElementById(`${role}-senha-btn`);
   const senha = input?.value?.trim();
-  if (!senha) return;
+  if (!senha) { input?.focus(); return; }
   if (btn) { btn.disabled = true; btn.textContent = '...'; }
   if (errEl) errEl.textContent = '';
   try {
     const data = await _chamarAuthPainel(role, senha);
     if (data.ok) {
       salvarSessaoPainel(role, data.token);
+      // Salvar nome do garçom se informado
+      if (role === 'garcom') {
+        const nomeInput = document.getElementById('garcom-nome-input');
+        const nome = nomeInput?.value?.trim() || '';
+        if (nome) sessionStorage.setItem('bf_garcom_nome', nome);
+      }
       initAudio();
       abrirPainelRole(role);
     } else {
@@ -1491,7 +1497,8 @@ async function confirmarPagamentoGarcom() {
       await supabase.from('pagamentos').insert({
         id: 'pag-' + Math.random().toString(36).substring(2,10),
         mesa: _pagMesa, total: _pagTotal, gorjeta: _pagGorjeta, forma: _pagForma,
-        responsavel: 'garçom', ts, ts_brasilia: tsBrasilia
+        responsavel: sessionStorage.getItem('bf_garcom_nome') || 'garçom',
+        ts, ts_brasilia: tsBrasilia
       });
     }
     await supabase.from('mesas').update({ status: 'entregue' })
@@ -1511,6 +1518,46 @@ async function confirmarPagamentoGarcom() {
 function fecharModalPag() {
   document.getElementById('pag-modal').style.display = 'none';
   _pagMesa = null; _pagForma = null; _pagTotal = 0; _pagDestino = null; _pagGorjeta = 0;
+}
+
+function imprimirComanda() {
+  const pedidos = window._pagPedidosCache || [];
+  const mesaLabel = _pagMesa ? (isNaN(parseInt(_pagMesa)) ? _pagMesa : `Mesa ${_pagMesa}`) : 'Mesa';
+  const total = pedidos.reduce((s, p) => s + (p.total || 0), 0);
+  const nome  = sessionStorage.getItem('bf_garcom_nome') || '';
+  let linhas = '';
+  pedidos.forEach(p => {
+    const hora = new Date(p.ts).toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+    linhas += `<tr><td colspan="3" style="font-size:0.65rem;color:#888;padding-top:6px;">${hora} · ${p.id}</td></tr>`;
+    p.itens.forEach(i => {
+      linhas += `<tr><td>${i.qty}×</td><td>${i.name}</td><td style="text-align:right;">R$ ${(i.price * i.qty).toFixed(2).replace('.',',')}</td></tr>`;
+    });
+    if (p.obs) linhas += `<tr><td colspan="3" style="font-size:0.65rem;color:#888;">📝 ${p.obs}</td></tr>`;
+  });
+  const win = window.open('', '_blank', 'width=400,height=620');
+  win.document.write(`<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="UTF-8">
+<title>Comanda — ${mesaLabel}</title>
+<style>
+  body { font-family: 'Courier New', monospace; font-size: 0.85rem; padding: 1.5rem; max-width: 320px; margin: 0 auto; color: #111; }
+  h1 { font-size: 1rem; text-align: center; margin-bottom: 0.25rem; }
+  .sub { font-size: 0.75rem; text-align: center; color: #555; margin-bottom: 1rem; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 2px 0; vertical-align: top; }
+  td:first-child { width: 2rem; }
+  td:last-child { width: 5rem; }
+  .total { border-top: 1px dashed #333; margin-top: 0.75rem; padding-top: 0.5rem; display: flex; justify-content: space-between; font-weight: bold; font-size: 0.95rem; }
+  .footer { font-size: 0.65rem; text-align: center; color: #888; margin-top: 1.5rem; }
+  @media print { body { margin: 0; padding: 0.5rem; } }
+</style></head><body>
+<h1>🌙 Beco FilosoFal Burguer</h1>
+<div class="sub">${mesaLabel} · ${new Date().toLocaleString('pt-BR')}${nome ? ' · ' + nome : ''}</div>
+<table>${linhas}</table>
+<div class="total"><span>Total</span><span>R$ ${total.toFixed(2).replace('.',',')}</span></div>
+<div class="footer">Obrigado pela visita! 🧙</div>
+<script>window.onload = () => setTimeout(() => window.print(), 300);<\/script>
+</body></html>`);
+  win.document.close();
 }
 
 // --- KANBAN HELPERS ---
@@ -1657,6 +1704,41 @@ async function atualizarDashboard() {
 
 let dashInterval = null;
 
+function mostrarAjudaAdmin() {
+  const painel = document.getElementById('admin-ajuda-modal');
+  if (painel) { painel.style.display = painel.style.display === 'flex' ? 'none' : 'flex'; return; }
+  const el = document.createElement('div');
+  el.id = 'admin-ajuda-modal';
+  el.style.cssText = 'position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;padding:1rem;';
+  el.innerHTML = `
+    <div style="background:var(--bg);border:1px solid rgba(201,168,76,0.3);border-radius:var(--radius);padding:1.5rem;width:100%;max-width:440px;max-height:85vh;overflow-y:auto;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+        <span style="font-family:var(--font-display);color:var(--gold);font-size:1rem;">📖 Manual do Sistema</span>
+        <button onclick="document.getElementById('admin-ajuda-modal').style.display='none'" style="background:none;border:none;color:var(--fg-muted);cursor:pointer;font-size:1.1rem;">✕</button>
+      </div>
+      <div style="font-size:0.78rem;line-height:1.9;color:var(--fg);">
+        <div style="font-family:var(--font-heading);font-size:0.68rem;color:var(--gold-dark);margin-bottom:0.3rem;">SENHAS DOS PAINÉIS</div>
+        <p style="color:var(--fg-muted);">Configure em: Supabase → Edge Functions → auth-painel → Secrets<br>
+        Variáveis: <code>SENHA_COZINHA</code> · <code>SENHA_GARCOM</code> · <code>SENHA_GESTAO</code><br>
+        Padrões atuais: <code>cozinha@beco2026</code> / <code>garcom@beco2026</code> / <code>gestao@beco2026</code></p>
+        <div style="font-family:var(--font-heading);font-size:0.68rem;color:var(--gold-dark);margin:0.75rem 0 0.3rem;">PIX</div>
+        <p style="color:var(--fg-muted);">Configure em: Vercel → Settings → Environment Variables<br>
+        <code>PIX_CHAVE</code> · <code>PIX_NOME</code> · <code>PIX_CIDADE</code></p>
+        <div style="font-family:var(--font-heading);font-size:0.68rem;color:var(--gold-dark);margin:0.75rem 0 0.3rem;">INÍCIO DE TURNO</div>
+        <p style="color:var(--fg-muted);"><code>INICIO_TURNO = 5</code> em <code>js/app.js</code><br>
+        Pedidos antes das 5h pertencem ao turno do dia anterior. Ajuste se necessário.</p>
+        <div style="font-family:var(--font-heading);font-size:0.68rem;color:var(--gold-dark);margin:0.75rem 0 0.3rem;">ENDEREÇOS DOS PAINÉIS</div>
+        <p style="color:var(--fg-muted);">
+        Gestão: <code>/?painel=gestao</code><br>
+        Cozinha: <code>/?painel=cozinha</code><br>
+        Garçom: <code>/?painel=garcom</code></p>
+        <div style="font-family:var(--font-heading);font-size:0.68rem;color:var(--gold-dark);margin:0.75rem 0 0.3rem;">SESSÃO</div>
+        <p style="color:var(--fg-muted);">Token de sessão dura 8 horas. Após expirar, o painel pede senha novamente.</p>
+      </div>
+    </div>`;
+  document.body.appendChild(el);
+}
+
 function mudarAbaAdmin(aba) {
   ['dashboard','pedidos','cozinha','links','cardapio','relatorios'].forEach(a => {
     const el  = document.getElementById(`admin-aba-${a}`);
@@ -1767,10 +1849,15 @@ function renderizarLinksAdmin() {
     `;
   }
 
-  // Botão adicionar mesa
-  if (mesasVisiveis < MESA_MAX) {
-    html += `<button onclick="adicionarMesa()" style="margin-top:1rem;width:100%;padding:0.65rem;background:none;border:1px dashed rgba(201,168,76,0.3);border-radius:var(--radius);color:var(--gold-dark);font-family:var(--font-heading);font-size:0.78rem;cursor:pointer;">+ Adicionar Mesa ${mesasVisiveis + 1}</button>`;
-  }
+  // Configurar número de mesas
+  html += `
+    <div style="display:flex;align-items:center;gap:0.5rem;margin-top:1rem;padding-top:0.75rem;border-top:1px solid rgba(201,168,76,0.1);">
+      <span style="font-family:var(--font-heading);font-size:0.72rem;color:var(--fg-muted);flex:1;">Total de mesas ativas:</span>
+      <input id="num-mesas-config" type="number" min="1" max="${MESA_MAX}" value="${mesasVisiveis}"
+        style="width:4rem;padding:0.3rem;background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:4px;color:var(--fg);font-size:0.8rem;text-align:center;">
+      <button onclick="configurarNumMesas()"
+        style="padding:0.3rem 0.6rem;background:rgba(201,168,76,0.12);border:1px solid rgba(201,168,76,0.25);border-radius:4px;color:var(--candle);font-size:0.72rem;cursor:pointer;font-family:var(--font-heading);">✓ OK</button>
+    </div>`;
 
   lista.innerHTML = html;
 }
@@ -1780,6 +1867,16 @@ function adicionarMesa() {
   mesasVisiveis++;
   localStorage.setItem('bf_num_mesas', String(mesasVisiveis));
   renderizarLinksAdmin();
+}
+
+function configurarNumMesas() {
+  const input = document.getElementById('num-mesas-config');
+  const n = parseInt(input?.value);
+  if (!n || n < 1 || n > MESA_MAX) { mostrarToast('⚠️ Número inválido (1–' + MESA_MAX + ')'); return; }
+  mesasVisiveis = n;
+  localStorage.setItem('bf_num_mesas', String(n));
+  renderizarLinksAdmin();
+  mostrarToast(`✓ ${n} mesas configuradas`);
 }
 
 function copiarLink(btn, url) {

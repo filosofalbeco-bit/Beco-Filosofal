@@ -511,6 +511,9 @@
     <div class="painel-login-box">
       <div class="painel-login-emoji">🧙</div>
       <div class="painel-login-title">Painel do Garçom</div>
+      <input type="text" id="garcom-nome-input" class="painel-login-input"
+        placeholder="Seu nome (ex: João)" style="margin-bottom:0.5rem;"
+        onkeydown="if(event.key==='Enter')document.getElementById('garcom-senha-input').focus()">
       <input type="password" id="garcom-senha-input" class="painel-login-input"
         placeholder="Senha" onkeydown="if(event.key==='Enter')verificarSenhaPainel('garcom')">
       <div class="painel-login-err" id="garcom-senha-err"></div>
@@ -568,6 +571,9 @@
         style="flex:1;padding:0.6rem;background:rgba(201,168,76,0.1);border:1px solid rgba(201,168,76,0.25);border-radius:var(--radius);color:var(--candle);font-family:var(--font-heading);font-size:0.78rem;cursor:pointer;">
         🔀 Transferir Mesa
       </button>
+      <button onclick="imprimirComanda()"
+        style="padding:0.6rem;background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.15);border-radius:var(--radius);color:var(--fg-muted);font-family:var(--font-heading);font-size:0.78rem;cursor:pointer;"
+        title="Imprimir comanda">🖨️</button>
     </div>
 
     <!-- Seção: Fechar Conta (oculta inicialmente) -->
@@ -623,6 +629,7 @@
   <div class="admin-header">
     <span class="admin-title">🪄 Painel de Gestão</span>
     <span id="admin-last-update" style="font-size:0.7rem;color:var(--fg-muted);font-family:var(--font-body);"></span>
+    <button onclick="mostrarAjudaAdmin()" style="background:none;border:1px solid rgba(201,168,76,0.2);border-radius:50%;width:1.6rem;height:1.6rem;color:var(--gold-dark);font-size:0.78rem;cursor:pointer;display:flex;align-items:center;justify-content:center;" title="Ajuda / Manual">?</button>
     <button class="cart-close" onclick="fecharAdmin()" aria-label="Fechar painel">✕</button>
   </div>
   <div class="admin-body">
