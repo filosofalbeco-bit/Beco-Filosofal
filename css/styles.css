@@ -324,7 +324,7 @@
   display: flex; align-items: center; gap: 1rem;
 }
 .admin-title { font-family: var(--font-display); font-size: 1.1rem; color: var(--gold); flex: 1; }
-.admin-body { flex: 1; padding: 1.5rem max(20px, env(safe-area-inset-left,0px)); max-width: 760px; width: 100%; margin: 0 auto; }
+.admin-body { flex: 1; padding: 1.5rem max(20px, env(safe-area-inset-left,0px)); max-width: 1100px; width: 100%; margin: 0 auto; }
 .admin-mesa-block {
   background: var(--card-bg);
   border: 1px solid var(--card-border);
@@ -1391,6 +1391,71 @@ footer {
   background: rgba(96,165,224,0.2); border: 1px solid #60a5e0;
   color: #60a5e0; font-size: 0.82rem; cursor: pointer; font-family: var(--font-heading);
 }
+
+/* ── Aba Pedidos — tabela com filtro ── */
+.ped-filter-bar { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.ped-filter-btn {
+  padding: 0.35rem 0.75rem; border-radius: 20px; cursor: pointer;
+  font-family: var(--font-heading); font-size: 0.72rem;
+  border: 1px solid rgba(255,255,255,0.1); background: transparent; color: var(--fg-muted);
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.ped-filter-btn.ativo { border-color: var(--gold); color: var(--gold); background: rgba(201,168,76,0.12); }
+.ped-count-badge {
+  background: rgba(201,168,76,0.25); border-radius: 10px;
+  padding: 0 0.3rem; font-size: 0.65rem; margin-left: 0.2rem;
+}
+
+.ped-table-header,
+.ped-row {
+  display: grid;
+  grid-template-columns: 100px 90px 1fr 170px 80px;
+  gap: 0.5rem; align-items: center;
+}
+.ped-table-header {
+  font-family: var(--font-heading); font-size: 0.6rem; letter-spacing: 0.08em;
+  color: var(--fg-muted); padding: 0 0.5rem 0.5rem;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.ped-row {
+  padding: 0.55rem 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05);
+  cursor: pointer; transition: background 0.12s; border-radius: 4px;
+}
+.ped-row:hover { background: rgba(201,168,76,0.06); }
+.ped-id-wrap { display: flex; flex-direction: column; gap: 0.1rem; }
+.ped-num  { font-family: var(--font-heading); font-size: 0.8rem; color: var(--gold); }
+.ped-hora { font-size: 0.65rem; color: var(--fg-muted); }
+.ped-mesa-txt { font-size: 0.78rem; color: var(--fg); }
+.ped-itens-txt { font-size: 0.72rem; color: var(--fg-muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.ped-status-txt { font-size: 0.72rem; }
+.ped-total-txt { font-family: var(--font-heading); font-size: 0.78rem; color: var(--gold); text-align: right; }
+.ped-dots { display: flex; align-items: center; gap: 2px; margin-bottom: 2px; }
+.ped-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.ped-dash { width: 10px; height: 1px; background: rgba(255,255,255,0.1); flex-shrink: 0; }
+
+@media (max-width: 600px) {
+  .ped-table-header, .ped-row { grid-template-columns: 95px 80px 1fr; }
+  .ped-col-itens, .ped-col-total { display: none; }
+}
+
+/* ── Modal detalhe pedido ── */
+#pedido-detalhe-modal {
+  position: fixed; inset: 0; z-index: 10200;
+  background: rgba(0,0,0,0.78); display: none;
+  align-items: center; justify-content: center; padding: 1rem;
+}
+.ped-det-box {
+  background: var(--navy2); border: 1px solid rgba(201,168,76,0.25);
+  border-radius: var(--radius); padding: 1.5rem; width: 100%;
+  max-width: 440px; max-height: 85vh; overflow-y: auto;
+}
+.ped-det-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem; }
+.ped-det-titulo { font-family: var(--font-heading); font-size: 1rem; color: var(--gold); }
+.ped-det-hora-txt { font-size: 0.72rem; color: var(--fg-muted); margin-top: 0.1rem; }
+.ped-det-itens { margin: 0.75rem 0; }
+.ped-det-item { display: flex; justify-content: space-between; padding: 0.3rem 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.8rem; color: var(--fg); }
+.ped-det-obs { font-size: 0.75rem; color: var(--candle); margin: 0.5rem 0; font-style: italic; }
+.ped-det-total { font-family: var(--font-heading); font-size: 1.1rem; color: var(--gold); text-align: right; margin-top: 0.75rem; }
 
 /* Destino do item do cardápio (admin) */
 .btn-dest {

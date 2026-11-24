@@ -2293,6 +2293,150 @@ async function marcarProntoKitchen(pedidoId, btn) {
   }
 }
 
+// --- ABA PEDIDOS (PIPELINE) ---
+let _pedidosGestaoFiltro = 'todos';
+let _pedidosCache = [];
+
+function _isMesaNumPed(m) { return !isNaN(parseInt(m)); }
+
+function _statusInfoPedido(p) {
+  if (p.status === 'aguardando')  return { txt: '⚠ Aguard. pagamento',    cor: '#e08c32' };
+  if (p.status === 'pendente')    return { txt: '⏳ Aguard. cozinha',       cor: 'var(--fg-muted)' };
+  if (p.status === 'preparando')  return { txt: '🔥 Preparando',            cor: '#e08c32' };
+  if (p.status === 'pronto' && _isMesaNumPed(p.mesa)) return { txt: '🔔 Entregar na mesa',   cor: '#c9a84c' };
+  if (p.status === 'pronto' && p.mesa === 'RETIRADA')  return { txt: '🏃 Aguard. retirada',   cor: '#3daa52' };
+  if (p.status === 'pronto' && p.mesa === 'ENTREGA')   return { txt: '🚴 Aguard. motoboy',    cor: '#60a5e0' };
+  if (p.status === 'entregue')    return { txt: '✓ Concluído',              cor: 'rgba(255,255,255,0.3)' };
+  return { txt: p.status, cor: 'var(--fg-muted)' };
+}
+
+function _dotsPedido(status) {
+  const gold   = '#c9a84c';
+  const green  = '#3daa52';
+  const orange = '#e08c32';
+  const empty  = 'rgba(255,255,255,0.12)';
+  const dot  = c => `<span class="ped-dot" style="background:${c};"></span>`;
+  const dash = `<span class="ped-dash"></span>`;
+  return [
+    dot(status === 'aguardando' ? orange : gold),
+    dash,
+    dot(['preparando','pronto','entregue'].includes(status) ? gold : empty),
+    dash,
+    dot(['pronto','entregue'].includes(status) ? green : empty),
+    dash,
+    dot(status === 'entregue' ? green : empty),
+  ].join('');
+}
+
+async function renderizarPedidosGestao(filtro) {
+  if (filtro !== undefined) _pedidosGestaoFiltro = filtro;
+  const body = document.getElementById('pedidos-gestao-body');
+  if (!body) return;
+  if (!supabase) { body.innerHTML = '<div class="admin-empty">⏳ Conectando...</div>'; return; }
+  try {
+    const startOfDay = new Date(); startOfDay.setHours(0, 0, 0, 0);
+    const { data } = await supabase.from('mesas').select('*')
+      .gte('ts', startOfDay.getTime())
+      .neq('status', 'cancelado')
+      .order('ts', { ascending: true });
+    _pedidosCache = data || [];
+
+    const isMesa = m => _isMesaNumPed(m);
+    const grupos = {
+      todos:   _pedidosCache,
+      cozinha: _pedidosCache.filter(p => ['pendente','preparando'].includes(p.status)),
+      garcom:  _pedidosCache.filter(p => p.status === 'pronto' && isMesa(p.mesa)),
+      caixa:   _pedidosCache.filter(p => p.status === 'aguardando' || (p.status === 'pronto' && p.mesa === 'RETIRADA')),
+      motoboy: _pedidosCache.filter(p => p.status === 'pronto' && p.mesa === 'ENTREGA'),
+    };
+    const pedidos = grupos[_pedidosGestaoFiltro] || _pedidosCache;
+
+    const filtros = [
+      { key: 'todos',   label: 'Todos' },
+      { key: 'cozinha', label: '🔥 Cozinha' },
+      { key: 'garcom',  label: '🧙 Garçom' },
+      { key: 'caixa',   label: '🏦 Caixa' },
+      { key: 'motoboy', label: '🛵 Motoboy' },
+    ];
+
+    const filterBar = `<div class="ped-filter-bar">${filtros.map(f => {
+      const n = grupos[f.key].length;
+      return `<button class="ped-filter-btn${_pedidosGestaoFiltro === f.key ? ' ativo' : ''}" onclick="renderizarPedidosGestao('${f.key}')">
+        ${f.label}${n > 0 ? `<span class="ped-count-badge">${n}</span>` : ''}
+      </button>`;
+    }).join('')}</div>`;
+
+    if (pedidos.length === 0) {
+      body.innerHTML = filterBar + '<div class="admin-empty" style="margin-top:1.5rem;">Nenhum pedido neste filtro.</div>';
+      return;
+    }
+
+    const mesaLabel = m => isMesa(m) ? `Mesa ${m}` : m === 'ENTREGA' ? '🚴 Entrega' : '🏃 Retirada';
+
+    const header = `<div class="ped-table-header">
+      <span>Pedido</span>
+      <span>Mesa/Tipo</span>
+      <span class="ped-col-itens">Itens</span>
+      <span>Status</span>
+      <span class="ped-col-total" style="text-align:right;">Total</span>
+    </div>`;
+
+    const rows = pedidos.map(p => {
+      const fmtHora = new Date(p.ts).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+      const itens   = (p.itens||[]).map(i => `${i.qty}× ${i.name}`).join(', ');
+      const itensShort = itens.length > 45 ? itens.slice(0, 45) + '…' : itens;
+      const si = _statusInfoPedido(p);
+      return `<div class="ped-row" onclick="abrirDetalhePedido('${p.id}')">
+        <div class="ped-id-wrap">
+          <span class="ped-num">#${p.id}</span>
+          <span class="ped-hora">${fmtHora}</span>
+        </div>
+        <div class="ped-mesa-txt">${mesaLabel(p.mesa)}</div>
+        <div class="ped-itens-txt ped-col-itens">${itensShort}</div>
+        <div>
+          <div class="ped-dots">${_dotsPedido(p.status)}</div>
+          <span class="ped-status-txt" style="color:${si.cor};">${si.txt}</span>
+        </div>
+        <div class="ped-total-txt ped-col-total">R$ ${(p.total||0).toFixed(2).replace('.',',')}</div>
+      </div>`;
+    }).join('');
+
+    body.innerHTML = filterBar + header + `<div>${rows}</div>`;
+  } catch(e) {
+    body.innerHTML = '<div class="admin-empty">Erro ao carregar pedidos.</div>';
+    console.warn('renderizarPedidosGestao failed', e);
+  }
+}
+
+function abrirDetalhePedido(id) {
+  const p = _pedidosCache.find(x => x.id === id);
+  if (!p) return;
+  const modal = document.getElementById('pedido-detalhe-modal');
+  if (!modal) return;
+  const isMesa = _isMesaNumPed(p.mesa);
+  const mesaLabel = isMesa ? `Mesa ${p.mesa}` : p.mesa === 'ENTREGA' ? '🚴 Entrega' : '🏃 Retirada';
+  const fmtHora = new Date(p.ts).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+  const si = _statusInfoPedido(p);
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el[typeof v === 'string' && v.includes('<') ? 'innerHTML' : 'textContent'] = v; };
+  set('ped-det-titulo', `#${p.id} · ${mesaLabel}`);
+  set('ped-det-hora', `${fmtHora}`);
+  set('ped-det-itens', (p.itens||[]).map(i =>
+    `<div class="ped-det-item"><span>${i.qty}× ${i.name}</span><span>R$ ${((i.price||0)*i.qty).toFixed(2).replace('.',',')}</span></div>`
+  ).join(''));
+  const obsRow = document.getElementById('ped-det-obs-row');
+  if (obsRow) obsRow.style.display = p.obs ? 'block' : 'none';
+  set('ped-det-obs', p.obs ? `📝 ${p.obs}` : '');
+  set('ped-det-total', `Total: R$ ${(p.total||0).toFixed(2).replace('.',',')}`);
+  document.getElementById('ped-det-status-dots').innerHTML = _dotsPedido(p.status);
+  document.getElementById('ped-det-status-txt').innerHTML = `<span style="color:${si.cor};">${si.txt}</span>`;
+  modal.style.display = 'flex';
+}
+
+function fecharDetalhePedido() {
+  const modal = document.getElementById('pedido-detalhe-modal');
+  if (modal) modal.style.display = 'none';
+}
+
 // --- DASHBOARD ---
 async function atualizarDashboard() {
   if (!supabase) return;
@@ -2428,6 +2572,7 @@ function mudarAbaAdmin(aba) {
   if (aba === 'caixa-gestao')   renderizarCaixaGestao();
   if (aba === 'garcom-gestao')  renderizarGarcomGestao();
   if (aba === 'motoboy-gestao') renderizarMotoboyGestao();
+  if (aba === 'pedidos')        renderizarPedidosGestao();
 }
 
 async function renderizarCozinha() {
