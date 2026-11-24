@@ -1371,6 +1371,27 @@ footer {
   color: var(--text-muted); margin-bottom: 0.5rem; padding-top: 0.25rem;
 }
 
+/* ── Painel Motoboy ── */
+#motoboy-overlay {
+  position: fixed; inset: 0; z-index: 3300;
+  background: var(--navy2);
+  display: none; flex-direction: column;
+}
+#motoboy-overlay.open { display: flex; }
+
+.caixa-card-retirada { border-color: rgba(45,138,64,0.4); background: rgba(45,138,64,0.05); }
+.caixa-card-entrega  { border-color: rgba(96,165,224,0.4); background: rgba(96,165,224,0.05); }
+.caixa-btn-retirada {
+  flex: 1; padding: 0.55rem; border: none; border-radius: calc(var(--radius) - 2px);
+  background: rgba(45,138,64,0.25); border: 1px solid #2d8a40;
+  color: #3daa52; font-size: 0.82rem; cursor: pointer; font-family: var(--font-heading);
+}
+.motoboy-btn-entregar {
+  flex: 1; padding: 0.55rem; border: none; border-radius: calc(var(--radius) - 2px);
+  background: rgba(96,165,224,0.2); border: 1px solid #60a5e0;
+  color: #60a5e0; font-size: 0.82rem; cursor: pointer; font-family: var(--font-heading);
+}
+
 /* Destino do item do cardápio (admin) */
 .btn-dest {
   padding: 0.3rem 0.6rem;

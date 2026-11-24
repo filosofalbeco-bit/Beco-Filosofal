@@ -1051,6 +1051,12 @@ function abrirPainelRole(role) {
     document.getElementById('caixa-painel').style.flexDirection = 'column';
     renderizarCaixa();
     setInterval(renderizarCaixa, 6000);
+  } else if (role === 'motoboy') {
+    document.getElementById('motoboy-senha-screen').style.display = 'none';
+    document.getElementById('motoboy-painel').style.display = 'flex';
+    document.getElementById('motoboy-painel').style.flexDirection = 'column';
+    renderizarMotoboy();
+    setInterval(renderizarMotoboy, 6000);
   }
 }
 
@@ -1074,6 +1080,9 @@ function abrirPainelRole(role) {
     } else if (painel === 'caixa') {
       document.getElementById('caixa-overlay').classList.add('open');
       if (verificarSessaoPainel('caixa')) { initAudio(); abrirPainelRole('caixa'); }
+    } else if (painel === 'motoboy') {
+      document.getElementById('motoboy-overlay').classList.add('open');
+      if (verificarSessaoPainel('motoboy')) { initAudio(); abrirPainelRole('motoboy'); }
     }
   } catch(e) {}
 })();
@@ -1341,8 +1350,11 @@ async function renderizarCaixa() {
       .order('ts', { ascending: true });
     const pedidos = data || [];
 
-    const aguardando = pedidos.filter(p => p.status === 'aguardando');
-    const emAndamento = pedidos.filter(p => ['pendente','preparando','pronto'].includes(p.status));
+    const aguardando    = pedidos.filter(p => p.status === 'aguardando');
+    const retiradaPronta = pedidos.filter(p => p.status === 'pronto' && p.mesa === 'RETIRADA');
+    const emAndamento   = pedidos.filter(p =>
+      ['pendente','preparando'].includes(p.status) ||
+      (p.status === 'pronto' && p.mesa !== 'RETIRADA'));
 
     const fmtMesa = m => !isNaN(parseInt(m)) ? `Mesa ${m}` : m === 'ENTREGA' ? '🚴 Entrega' : '🏃 Retirada';
     const fmtHora = ts => new Date(ts).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
@@ -1362,6 +1374,20 @@ async function renderizarCaixa() {
         </div>
       </div>`).join('');
 
+    const cardsRetirada = retiradaPronta.map(p => `
+      <div class="caixa-card caixa-card-retirada">
+        <div class="caixa-card-header">
+          <span class="caixa-card-id">#${p.id} · ${fmtHora(p.ts)}</span>
+          <span class="caixa-card-mesa">🏃 Retirada</span>
+        </div>
+        <div class="caixa-card-itens">${(p.itens||[]).map(i => `${i.qty}× ${i.name}`).join(' · ')}</div>
+        ${p.obs ? `<div class="caixa-card-obs">📝 ${p.obs}</div>` : ''}
+        <div class="caixa-card-total">R$ ${(p.total||0).toFixed(2).replace('.',',')}</div>
+        <div class="caixa-card-acoes">
+          <button class="caixa-btn-retirada" onclick="concluirRetiradaCaixa('${p.id}', this)">✓ Concluir Retirada</button>
+        </div>
+      </div>`).join('');
+
     const resumoAndamento = emAndamento.length > 0
       ? `<div class="caixa-secao-label">EM ANDAMENTO (${emAndamento.length})</div>
          <div style="font-size:0.78rem;color:var(--text-muted);padding:0.25rem 0 0.5rem;">
@@ -1371,6 +1397,7 @@ async function renderizarCaixa() {
     body.innerHTML = `
       <div class="caixa-secao-label">AGUARDANDO PAGAMENTO (${aguardando.length})</div>
       ${aguardando.length === 0 ? '<div class="admin-empty" style="margin-bottom:1rem;">Nenhum pedido aguardando</div>' : cardsAguardando}
+      ${retiradaPronta.length > 0 ? `<div class="caixa-secao-label">PRONTO PARA RETIRADA (${retiradaPronta.length})</div>${cardsRetirada}` : ''}
       ${resumoAndamento}`;
   } catch(e) {
     body.innerHTML = '<div class="admin-empty">Erro ao carregar.</div>';
@@ -1402,6 +1429,68 @@ async function rejeitarPedidoCaixa(id, btn) {
   }
 }
 
+async function concluirRetiradaCaixa(id, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = '...'; }
+  try {
+    await supabase.from('mesas').update({ status: 'entregue' }).eq('id', id);
+    mostrarToast('✓ Retirada concluída!');
+    renderizarCaixa();
+  } catch(e) {
+    mostrarToast('❌ Erro: ' + (e?.message || ''));
+    if (btn) { btn.disabled = false; btn.textContent = '✓ Concluir Retirada'; }
+  }
+}
+
+// ── Motoboy ──────────────────────────────────────────────────────────────────
+function fecharMotoboy() {
+  document.getElementById('motoboy-overlay').classList.remove('open');
+}
+
+async function renderizarMotoboy() {
+  const body = document.getElementById('motoboy-body');
+  if (!body) return;
+  if (!supabase) { body.innerHTML = '<div class="admin-empty">⏳ Conectando...</div>'; return; }
+  try {
+    const { data } = await supabase.from('mesas').select('*')
+      .eq('status', 'pronto')
+      .eq('mesa', 'ENTREGA')
+      .order('ts', { ascending: true });
+    const pedidos = data || [];
+    const fmtHora = ts => new Date(ts).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+    const cards = pedidos.map(p => `
+      <div class="caixa-card caixa-card-entrega">
+        <div class="caixa-card-header">
+          <span class="caixa-card-id">#${p.id} · ${fmtHora(p.ts)}</span>
+          <span class="caixa-card-mesa">🚴 Entrega</span>
+        </div>
+        <div class="caixa-card-itens">${(p.itens||[]).map(i => `${i.qty}× ${i.name}`).join(' · ')}</div>
+        ${p.obs ? `<div class="caixa-card-obs">📝 ${p.obs}</div>` : ''}
+        <div class="caixa-card-total">R$ ${(p.total||0).toFixed(2).replace('.',',')}</div>
+        <div class="caixa-card-acoes">
+          <button class="motoboy-btn-entregar" onclick="confirmarEntregaMotoboy('${p.id}', this)">✓ Entregue ao cliente</button>
+        </div>
+      </div>`).join('');
+    body.innerHTML = `
+      <div class="caixa-secao-label">PRONTOS PARA ENTREGA (${pedidos.length})</div>
+      ${pedidos.length === 0 ? '<div class="admin-empty">Nenhuma entrega pendente</div>' : cards}`;
+  } catch(e) {
+    body.innerHTML = '<div class="admin-empty">Erro ao carregar.</div>';
+    console.warn('renderizarMotoboy failed', e);
+  }
+}
+
+async function confirmarEntregaMotoboy(id, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = '...'; }
+  try {
+    await supabase.from('mesas').update({ status: 'entregue' }).eq('id', id);
+    mostrarToast('✓ Entrega confirmada!');
+    renderizarMotoboy();
+  } catch(e) {
+    mostrarToast('❌ Erro: ' + (e?.message || ''));
+    if (btn) { btn.disabled = false; btn.textContent = '✓ Entregue ao cliente'; }
+  }
+}
+
 async function renderizarCaixaGestao() {
   const body = document.getElementById('caixa-gestao-body');
   if (!body) return;
@@ -1412,8 +1501,11 @@ async function renderizarCaixaGestao() {
       .order('ts', { ascending: true });
     const pedidos = data || [];
 
-    const aguardando = pedidos.filter(p => p.status === 'aguardando');
-    const emAndamento = pedidos.filter(p => ['pendente','preparando','pronto'].includes(p.status));
+    const aguardando     = pedidos.filter(p => p.status === 'aguardando');
+    const retiradaPronta = pedidos.filter(p => p.status === 'pronto' && p.mesa === 'RETIRADA');
+    const emAndamento    = pedidos.filter(p =>
+      ['pendente','preparando'].includes(p.status) ||
+      (p.status === 'pronto' && p.mesa !== 'RETIRADA'));
 
     const fmtMesa = m => !isNaN(parseInt(m)) ? `Mesa ${m}` : m === 'ENTREGA' ? '🚴 Entrega' : '🏃 Retirada';
     const fmtHora = ts => new Date(ts).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
@@ -1433,6 +1525,20 @@ async function renderizarCaixaGestao() {
         </div>
       </div>`).join('');
 
+    const cardsRetirada = retiradaPronta.map(p => `
+      <div class="caixa-card caixa-card-retirada">
+        <div class="caixa-card-header">
+          <span class="caixa-card-id">#${p.id} · ${fmtHora(p.ts)}</span>
+          <span class="caixa-card-mesa">🏃 Retirada</span>
+        </div>
+        <div class="caixa-card-itens">${(p.itens||[]).map(i => `${i.qty}× ${i.name}`).join(' · ')}</div>
+        ${p.obs ? `<div class="caixa-card-obs">📝 ${p.obs}</div>` : ''}
+        <div class="caixa-card-total">R$ ${(p.total||0).toFixed(2).replace('.',',')}</div>
+        <div class="caixa-card-acoes">
+          <button class="caixa-btn-retirada" onclick="concluirRetiradaCaixaGestao('${p.id}', this)">✓ Concluir Retirada</button>
+        </div>
+      </div>`).join('');
+
     const resumoAndamento = emAndamento.length > 0
       ? `<div class="caixa-secao-label">EM ANDAMENTO (${emAndamento.length})</div>
          <div style="font-size:0.78rem;color:var(--text-muted);padding:0.25rem 0 0.5rem;">
@@ -1442,6 +1548,7 @@ async function renderizarCaixaGestao() {
     body.innerHTML = `
       <div class="caixa-secao-label">AGUARDANDO PAGAMENTO (${aguardando.length})</div>
       ${aguardando.length === 0 ? '<div class="admin-empty" style="margin-bottom:1rem;">Nenhum pedido aguardando</div>' : cardsAguardando}
+      ${retiradaPronta.length > 0 ? `<div class="caixa-secao-label">PRONTO PARA RETIRADA (${retiradaPronta.length})</div>${cardsRetirada}` : ''}
       ${resumoAndamento}`;
   } catch(e) {
     body.innerHTML = '<div class="admin-empty">Erro ao carregar.</div>';
@@ -1472,6 +1579,18 @@ async function rejeitarPedidoCaixaGestao(id, btn) {
   } catch(e) {
     mostrarToast('❌ Erro: ' + (e?.message || ''));
     if (btn) { btn.disabled = false; btn.textContent = '✕ Rejeitar'; }
+  }
+}
+
+async function concluirRetiradaCaixaGestao(id, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = '...'; }
+  try {
+    await supabase.from('mesas').update({ status: 'entregue' }).eq('id', id);
+    mostrarToast('✓ Retirada concluída!');
+    renderizarCaixaGestao();
+  } catch(e) {
+    mostrarToast('❌ Erro: ' + (e?.message || ''));
+    if (btn) { btn.disabled = false; btn.textContent = '✓ Concluir Retirada'; }
   }
 }
 
