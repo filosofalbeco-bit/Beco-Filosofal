@@ -543,6 +543,27 @@
   </div>
 </div>
 
+<!-- PAINEL CAIXA -->
+<div id="caixa-overlay">
+  <div id="caixa-senha-screen" class="painel-login-screen">
+    <div class="painel-login-box">
+      <div class="painel-login-emoji">🏦</div>
+      <div class="painel-login-title">Painel do Caixa</div>
+      <input type="password" id="caixa-senha-input" class="painel-login-input"
+        placeholder="Senha" onkeydown="if(event.key==='Enter')verificarSenhaPainel('caixa')">
+      <div class="painel-login-err" id="caixa-senha-err"></div>
+      <button id="caixa-senha-btn" class="painel-login-btn btn-entrar-painel" onclick="verificarSenhaPainel('caixa')">Entrar</button>
+    </div>
+  </div>
+  <div id="caixa-painel" style="display:none;flex-direction:column;height:100%;">
+    <div class="admin-header">
+      <span class="admin-title">🏦 Caixa</span>
+      <button class="cart-close" onclick="fecharCaixa()" aria-label="Fechar painel">✕</button>
+    </div>
+    <div class="admin-body" id="caixa-body"></div>
+  </div>
+</div>
+
 <!-- MODAL MESA (Garçom) — detalhe + fechar conta + transferir -->
 <div id="pag-modal" style="display:none;position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;padding:1rem;">
   <div style="background:var(--bg);border:1px solid rgba(201,168,76,0.3);border-radius:var(--radius);padding:1.5rem;width:100%;max-width:420px;max-height:85vh;overflow-y:auto;">

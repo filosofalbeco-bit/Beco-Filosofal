@@ -864,10 +864,10 @@ ${obs ? '\nObs: ' + obs : ''}
       await dbRef.collection('mesas').doc(codigo).set({
         id: codigo,
         mesa: mesaKey,
-        itens: Object.values(cart).map(i => ({ name: i.name, qty: i.qty, price: i.price })),
+        itens: Object.values(cart).map(i => ({ name: i.opcao ? `${i.name} (${i.opcao})` : i.name, qty: i.qty, price: i.price })),
         total,
         obs: (document.getElementById('obs-input') || {}).value || '',
-        status: 'pendente',
+        status: 'aguardando',
         ts: Date.now()
       });
     } catch(e) { console.warn('DB save external failed', e); }
@@ -1039,12 +1039,18 @@ function abrirPainelRole(role) {
     document.getElementById('garcom-senha-screen').style.display = 'none';
     document.getElementById('garcom-painel').style.display = 'flex';
     document.getElementById('garcom-painel').style.flexDirection = 'column';
-    _garcomProntosCount = -1; // primeira carga não emite beep
+    _garcomProntosCount = -1;
     renderizarMapaMesas();
     setInterval(() => {
       if (garcomAbaAtiva === 'mesas')   renderizarMapaMesas();
       else                              renderizarGarcom();
     }, 5000);
+  } else if (role === 'caixa') {
+    document.getElementById('caixa-senha-screen').style.display = 'none';
+    document.getElementById('caixa-painel').style.display = 'flex';
+    document.getElementById('caixa-painel').style.flexDirection = 'column';
+    renderizarCaixa();
+    setInterval(renderizarCaixa, 6000);
   }
 }
 
@@ -1065,6 +1071,9 @@ function abrirPainelRole(role) {
       painelGarcomAtivo = true;
       document.getElementById('garcom-overlay').classList.add('open');
       if (verificarSessaoPainel('garcom')) { initAudio(); abrirPainelRole('garcom'); }
+    } else if (painel === 'caixa') {
+      document.getElementById('caixa-overlay').classList.add('open');
+      if (verificarSessaoPainel('caixa')) { initAudio(); abrirPainelRole('caixa'); }
     }
   } catch(e) {}
 })();
@@ -1314,6 +1323,82 @@ async function renderizarMapaMesas() {
   } catch(e) {
     body.innerHTML = '<div class="admin-empty">Erro ao carregar mesas.</div>';
     console.warn('MapaMesas fetch failed', e);
+  }
+}
+
+// ── Painel Caixa ─────────────────────────────────────────────────────────────
+function fecharCaixa() {
+  document.getElementById('caixa-overlay').classList.remove('open');
+}
+
+async function renderizarCaixa() {
+  const body = document.getElementById('caixa-body');
+  if (!body) return;
+  if (!supabase) { body.innerHTML = '<div class="admin-empty">⏳ Conectando...</div>'; return; }
+  try {
+    const { data } = await supabase.from('mesas').select('*')
+      .in('status', ['aguardando', 'pendente', 'preparando', 'pronto'])
+      .order('ts', { ascending: true });
+    const pedidos = data || [];
+
+    const aguardando = pedidos.filter(p => p.status === 'aguardando');
+    const emAndamento = pedidos.filter(p => ['pendente','preparando','pronto'].includes(p.status));
+
+    const fmtMesa = m => !isNaN(parseInt(m)) ? `Mesa ${m}` : m === 'ENTREGA' ? '🚴 Entrega' : '🏃 Retirada';
+    const fmtHora = ts => new Date(ts).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+
+    const cardsAguardando = aguardando.map(p => `
+      <div class="caixa-card caixa-card-aguardando">
+        <div class="caixa-card-header">
+          <span class="caixa-card-id">#${p.id} · ${fmtHora(p.ts)}</span>
+          <span class="caixa-card-mesa">${fmtMesa(p.mesa)}</span>
+        </div>
+        <div class="caixa-card-itens">${(p.itens||[]).map(i => `${i.qty}× ${i.name}`).join(' · ')}</div>
+        ${p.obs ? `<div class="caixa-card-obs">📝 ${p.obs}</div>` : ''}
+        <div class="caixa-card-total">R$ ${(p.total||0).toFixed(2).replace('.',',')}</div>
+        <div class="caixa-card-acoes">
+          <button class="caixa-btn-confirmar" onclick="confirmarPedidoCaixa('${p.id}', this)">✓ Confirmar pagamento</button>
+          <button class="caixa-btn-rejeitar" onclick="rejeitarPedidoCaixa('${p.id}', this)">✕ Rejeitar</button>
+        </div>
+      </div>`).join('');
+
+    const resumoAndamento = emAndamento.length > 0
+      ? `<div class="caixa-secao-label">EM ANDAMENTO (${emAndamento.length})</div>
+         <div style="font-size:0.78rem;color:var(--text-muted);padding:0.25rem 0 0.5rem;">
+           ${emAndamento.map(p => `${fmtMesa(p.mesa)} · R$ ${(p.total||0).toFixed(2).replace('.',',')} · <em>${p.status}</em>`).join('<br>')}
+         </div>` : '';
+
+    body.innerHTML = `
+      <div class="caixa-secao-label">AGUARDANDO PAGAMENTO (${aguardando.length})</div>
+      ${aguardando.length === 0 ? '<div class="admin-empty" style="margin-bottom:1rem;">Nenhum pedido aguardando</div>' : cardsAguardando}
+      ${resumoAndamento}`;
+  } catch(e) {
+    body.innerHTML = '<div class="admin-empty">Erro ao carregar.</div>';
+    console.warn('renderizarCaixa failed', e);
+  }
+}
+
+async function confirmarPedidoCaixa(id, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = '...'; }
+  try {
+    await supabase.from('mesas').update({ status: 'pendente' }).eq('id', id).eq('status', 'aguardando');
+    mostrarToast('✓ Pedido confirmado — foi para a cozinha!');
+    renderizarCaixa();
+  } catch(e) {
+    mostrarToast('❌ Erro: ' + (e?.message || ''));
+    if (btn) { btn.disabled = false; btn.textContent = '✓ Confirmar pagamento'; }
+  }
+}
+
+async function rejeitarPedidoCaixa(id, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = '...'; }
+  try {
+    await supabase.from('mesas').update({ status: 'cancelado' }).eq('id', id);
+    mostrarToast('Pedido cancelado.');
+    renderizarCaixa();
+  } catch(e) {
+    mostrarToast('❌ Erro: ' + (e?.message || ''));
+    if (btn) { btn.disabled = false; btn.textContent = '✕ Rejeitar'; }
   }
 }
 
@@ -1974,6 +2059,7 @@ function mostrarAjudaAdmin() {
         <div style="font-family:var(--font-heading);font-size:0.68rem;color:var(--gold-dark);margin:0.75rem 0 0.3rem;">ENDEREÇOS DOS PAINÉIS</div>
         <p style="color:var(--fg-muted);">
         Gestão: <code>/?painel=gestao</code><br>
+        Caixa: <code>/?painel=caixa</code><br>
         Cozinha: <code>/?painel=cozinha</code><br>
         Garçom: <code>/?painel=garcom</code></p>
         <div style="font-family:var(--font-heading);font-size:0.68rem;color:var(--gold-dark);margin:0.75rem 0 0.3rem;">SESSÃO</div>

@@ -1333,6 +1333,44 @@ footer {
 .status-pill.cancelado { background: rgba(224,96,96,0.15); color: #e06060; }
 .status-item-cancelado { opacity: 0.55; }
 
+/* ── Painel Caixa ── */
+#caixa-overlay {
+  position: fixed; inset: 0; z-index: 3200;
+  background: var(--navy2);
+  display: none; flex-direction: column;
+}
+#caixa-overlay.open { display: flex; }
+
+.caixa-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: var(--radius);
+  padding: 0.9rem 1rem;
+  margin-bottom: 0.75rem;
+}
+.caixa-card-aguardando { border-color: rgba(201,168,76,0.4); background: rgba(201,168,76,0.05); }
+.caixa-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; }
+.caixa-card-id { font-size: 0.72rem; color: var(--text-muted); }
+.caixa-card-mesa { font-family: var(--font-heading); font-size: 0.85rem; color: var(--accent); }
+.caixa-card-itens { font-size: 0.82rem; color: var(--text); margin-bottom: 0.3rem; }
+.caixa-card-obs { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.3rem; }
+.caixa-card-total { font-family: var(--font-heading); font-size: 1.1rem; color: var(--gold); margin-bottom: 0.65rem; }
+.caixa-card-acoes { display: flex; gap: 0.5rem; }
+.caixa-btn-confirmar {
+  flex: 1; padding: 0.55rem; border: none; border-radius: calc(var(--radius) - 2px);
+  background: rgba(45,138,64,0.25); border: 1px solid #2d8a40;
+  color: #3daa52; font-size: 0.82rem; cursor: pointer; font-family: var(--font-heading);
+}
+.caixa-btn-rejeitar {
+  padding: 0.55rem 0.75rem; border-radius: calc(var(--radius) - 2px);
+  background: rgba(224,96,96,0.1); border: 1px solid rgba(224,96,96,0.3);
+  color: #e06060; font-size: 0.82rem; cursor: pointer;
+}
+.caixa-secao-label {
+  font-family: var(--font-heading); font-size: 0.65rem; letter-spacing: 0.08em;
+  color: var(--text-muted); margin-bottom: 0.5rem; padding-top: 0.25rem;
+}
+
 /* Destino do item do cardápio (admin) */
 .btn-dest {
   padding: 0.3rem 0.6rem;
