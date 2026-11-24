@@ -1744,7 +1744,7 @@ function iniciarPollingStatus() {
 /* =====================================================
    CARDÁPIO — Dados e renderização
    ===================================================== */
-let CARDAPIO_DINAMICO = {}; // id → { destino } carregado do Supabase
+let CARDAPIO_DINAMICO = {}; // id → { destino } — pré-populado do estático, atualizado pelo banco
 
 async function carregarCardapioDB() {
   if (!supabase) return;
@@ -1809,8 +1809,14 @@ function renderizarCardapio() {
   document.getElementById('items-sobremesas').innerHTML = CARDAPIO.sobremesas.map(mkItemHTML).join('');
 }
 
+// Pré-popular CARDAPIO_DINAMICO com destino padrão 'cozinha' para todos os itens
+// (garante que confirmarPedidoMesa funcione mesmo antes do banco responder)
+Object.values(CARDAPIO).flat().forEach(item => {
+  CARDAPIO_DINAMICO[item.id] = { destino: 'cozinha' };
+});
+
 renderizarCardapio();
-carregarCardapioDB();
+carregarCardapioDB(); // sobrescreve com valores reais do banco
 
 // --- CARDÁPIO ADMIN ---
 const CATEG_LABELS = { burgers: '🍔 Burgers', acomp: '🍟 Acompanhamentos', bebidas: '🥤 Bebidas', sobremesas: '🍫 Sobremesas' };
