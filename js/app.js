@@ -680,6 +680,19 @@ async function encerrarConta() {
     const codigo = pedidos[0].id;
     fecharCarrinho();
     localStorage.removeItem('bf_sess_' + mesaAtiva);
+
+    // Registrar pagamento (com gorjeta separada)
+    if (supabase) {
+      const agora = new Date();
+      await supabase.from('pagamentos').insert({
+        id: 'pag-' + Math.random().toString(36).substring(2,10),
+        mesa: mesaAtiva, total: totalGeral, gorjeta: _gorjetaVal,
+        forma: 'pix', responsavel: 'cliente',
+        ts: agora.getTime(),
+        ts_brasilia: agora.toLocaleString('pt-BR', {timeZone:'America/Sao_Paulo'})
+      }).then(({ error }) => { if (error) console.warn('Pagamento insert failed', error); });
+    }
+
     abrirPix(codigo, totalGeral + _gorjetaVal);
   } catch(e) {
     console.warn('DB error on encerrar', e);
@@ -1349,7 +1362,7 @@ async function confirmarPagamentoGarcom() {
     if (supabase) {
       await supabase.from('pagamentos').insert({
         id: 'pag-' + Math.random().toString(36).substring(2,10),
-        mesa: _pagMesa, total: _pagTotal, forma: _pagForma,
+        mesa: _pagMesa, total: _pagTotal, gorjeta: 0, forma: _pagForma,
         responsavel: 'garçom', ts, ts_brasilia: tsBrasilia
       });
     }
@@ -1476,8 +1489,14 @@ async function atualizarDashboard() {
   if (!supabase) return;
   try {
     const hojeMidnight = new Date(); hojeMidnight.setHours(0,0,0,0);
-    const { data } = await supabase.from('mesas').select('*').gte('ts', hojeMidnight.getTime());
+    const tsBase = hojeMidnight.getTime();
+
+    const [{ data }, { data: pags }] = await Promise.all([
+      supabase.from('mesas').select('*').gte('ts', tsBase),
+      supabase.from('pagamentos').select('gorjeta').gte('ts', tsBase)
+    ]);
     const pedidos = data || [];
+    const gorjetaHoje = (pags || []).reduce((s, p) => s + (p.gorjeta || 0), 0);
 
     const isMesaNum = (m) => !isNaN(parseInt(m));
     const mesasAtivas = new Set(
@@ -1498,6 +1517,7 @@ async function atualizarDashboard() {
     set('dash-ext-prontos',  extProntos);
     set('dash-total-hoje',   totalHoje);
     set('dash-fat-hoje',     'R$ ' + fatHoje.toFixed(2).replace('.', ','));
+    set('dash-gorjeta-hoje', 'R$ ' + gorjetaHoje.toFixed(2).replace('.', ','));
     const ref = document.querySelector('.dash-refresh');
     if (ref) ref.textContent = '🔄 Atualizado ' + new Date().toLocaleTimeString('pt-BR');
   } catch(e) { console.warn('Dashboard fetch failed', e); }
