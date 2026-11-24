@@ -2510,11 +2510,11 @@ async function renderizarCardapioAdmin() {
                 placeholder="Descrição">
               <input id="edit-opcoes-${item.id}" type="text" value="${(item.opcoes||[]).join(', ').replace(/"/g,'&quot;')}"
                 style="width:100%;margin-bottom:0.4rem;padding:0.4rem;background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:4px;color:var(--fg);font-size:0.8rem;box-sizing:border-box;"
-                placeholder="Opções separadas por vírgula (ex: Laranja, Limão, Maracujá)">
+                placeholder="Variações separadas por vírgula (ex: P / M / G  ou  com gás / sem gás)">
               <div style="display:flex;gap:0.4rem;margin-bottom:0.4rem;align-items:center;">
                 <input id="edit-foto-${item.id}" type="url" value="${(item.foto_url||'').replace(/"/g,'&quot;')}"
                   style="flex:1;padding:0.4rem;background:rgba(201,168,76,0.07);border:1px solid rgba(201,168,76,0.2);border-radius:4px;color:var(--fg);font-size:0.8rem;box-sizing:border-box;"
-                  placeholder="URL da foto (opcional)">
+                  placeholder="URL da foto (ou use o botão 📷)">
                 <label style="cursor:pointer;padding:0.35rem 0.5rem;background:rgba(201,168,76,0.12);border:1px solid rgba(201,168,76,0.3);border-radius:4px;font-size:0.72rem;color:var(--accent);white-space:nowrap;"
                   title="Enviar foto do computador">
                   📷 Enviar
