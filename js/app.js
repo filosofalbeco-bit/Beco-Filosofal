@@ -2038,9 +2038,12 @@ async function abrirFecharConta(mesa) {
   const mesaLabel = isMesaNum(mesa) ? `Mesa ${mesa}` : mesa === 'ENTREGA' ? 'Entrega' : 'Retirada';
 
   const startOfDay = new Date(); startOfDay.setHours(0,0,0,0);
-  const { data } = await supabase.from('mesas').select('*')
-    .eq('mesa', mesa).gte('ts', startOfDay.getTime()).order('ts', {ascending:true});
-  const pedidos = data || [];
+  const [{ data: pedData }, { data: pagData }] = await Promise.all([
+    supabase.from('mesas').select('*').eq('mesa', mesa).gte('ts', startOfDay.getTime()).order('ts', {ascending:true}),
+    supabase.from('pagamentos').select('ts').eq('mesa', mesa).gte('ts', startOfDay.getTime()).order('ts', {ascending:false}).limit(1),
+  ]);
+  const lastPagTs = pagData?.[0]?.ts || 0;
+  const pedidos = (pedData || []).filter(p => p.ts > lastPagTs);
   window._pagPedidosCache = pedidos;
 
   const total = pedidos.reduce((s, p) => s + (p.total||0), 0);
