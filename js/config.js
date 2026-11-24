@@ -9,13 +9,15 @@
 //   SUPABASE_ANON_KEY = sua-chave-anon-publica
 //   PIX_CHAVE        = sua-chave-pix
 //   PIX_NOME         = Nome da conta PIX
+//   PIX_CIDADE       = Cidade da conta PIX
 //   WPP_NUM          = 55DD999999999
-//   ADMIN_SENHA      = sua-senha-do-painel
+// No painel do Supabase > Edge Functions > auth-painel > Secrets, adicione:
+//   SENHA_COZINHA, SENHA_GARCOM, SENHA_GESTAO
 
 // Substituir pelos valores reais antes de fazer deploy
 window.SUPABASE_URL      = '';   // ex: 'https://abcdef.supabase.co'
 window.SUPABASE_ANON_KEY = '';   // chave anon pública do Supabase
 window.PIX_CHAVE         = '';   // chave PIX (CPF, CNPJ, email ou telefone)
 window.PIX_NOME          = 'Beco FilosoFal Burguer';
+window.PIX_CIDADE        = 'Barbacena';
 window.WPP_NUM           = '';   // ex: '5531999999999'
-window.ADMIN_SENHA       = 'filosofal2024'; // trocar antes do deploy

@@ -453,27 +453,26 @@
   <div class="pix-box" id="pix-box">
     <div class="pix-code-header">✦ Pagamento via PIX ✦</div>
     <div class="pix-order-num" id="pix-order-num"></div>
-    <div class="pix-subtitle">Escaneie ou copie a chave para pagar</div>
+    <div class="pix-subtitle">Escaneie o QR Code ou use o Pix Copia e Cola</div>
 
     <div class="pix-qr-box">
-      <canvas id="pix-qr" width="160" height="160"></canvas>
+      <canvas id="pix-qr" width="200" height="200"></canvas>
     </div>
 
-    <div class="pix-key-label">Chave PIX</div>
-    <div class="pix-key-val">
-      <span id="pix-key-display"></span>
-      <button class="copy-btn" onclick="copiarChave()" aria-label="Copiar chave">📋</button>
-    </div>
+    <button class="btn-pix-cola" onclick="copiarChave()" aria-label="Pix Copia e Cola">
+      📋 Pix Copia e Cola
+    </button>
+    <div class="pix-key-mini">Chave: <span id="pix-key-display"></span></div>
     <div class="copy-feedback" id="copy-feedback"></div>
 
     <div class="pix-total" id="pix-total-val"></div>
-    <div class="pix-total-label">Valor total do pedido</div>
+    <div class="pix-total-label">Valor total</div>
 
     <div class="pix-steps">
       <div class="pix-step"><span class="pix-step-num">1</span><span>Abra o app do seu banco</span></div>
-      <div class="pix-step"><span class="pix-step-num">2</span><span>Escaneie o QR ou cole a chave PIX</span></div>
+      <div class="pix-step"><span class="pix-step-num">2</span><span>Escaneie o QR Code <strong>ou</strong> use Pix Copia e Cola</span></div>
       <div class="pix-step"><span class="pix-step-num">3</span><span>Confirme o valor e pague</span></div>
-      <div class="pix-step"><span class="pix-step-num">4</span><span>Clique abaixo e <strong>anexe o comprovante</strong> no WhatsApp — seu pedido só será confirmado após isso</span></div>
+      <div class="pix-step"><span class="pix-step-num">4</span><span>Clique abaixo e <strong>anexe o comprovante</strong> no WhatsApp</span></div>
     </div>
 
     <div class="divider-pix"><span>⚯͛</span></div>
@@ -487,32 +486,56 @@
 
 <!-- PAINEL COZINHA -->
 <div id="cozinha-overlay">
-  <div class="admin-header">
-    <span class="admin-title">🔥 Painel da Cozinha</span>
-    <button class="cart-close" onclick="fecharCozinha()" aria-label="Fechar painel">✕</button>
+  <div id="cozinha-senha-screen" class="painel-login-screen">
+    <div class="painel-login-box">
+      <div class="painel-login-emoji">🔥</div>
+      <div class="painel-login-title">Painel da Cozinha</div>
+      <input type="password" id="cozinha-senha-input" class="painel-login-input"
+        placeholder="Senha" onkeydown="if(event.key==='Enter')verificarSenhaPainel('cozinha')">
+      <div class="painel-login-err" id="cozinha-senha-err"></div>
+      <button id="cozinha-senha-btn" class="painel-login-btn" onclick="verificarSenhaPainel('cozinha')">Entrar</button>
+    </div>
   </div>
-  <div class="admin-body" id="cozinha-body"></div>
+  <div id="cozinha-painel" style="display:none;flex-direction:column;height:100%;">
+    <div class="admin-header">
+      <span class="admin-title">🔥 Painel da Cozinha</span>
+      <button class="cart-close" onclick="fecharCozinha()" aria-label="Fechar painel">✕</button>
+    </div>
+    <div class="admin-body" id="cozinha-body"></div>
+  </div>
 </div>
 
 <!-- PAINEL GARÇOM -->
 <div id="garcom-overlay">
-  <div class="admin-header">
-    <span class="admin-title">🧙 Painel do Garçom</span>
-    <button class="cart-close" onclick="fecharGarcom()" aria-label="Fechar painel">✕</button>
+  <div id="garcom-senha-screen" class="painel-login-screen">
+    <div class="painel-login-box">
+      <div class="painel-login-emoji">🧙</div>
+      <div class="painel-login-title">Painel do Garçom</div>
+      <input type="password" id="garcom-senha-input" class="painel-login-input"
+        placeholder="Senha" onkeydown="if(event.key==='Enter')verificarSenhaPainel('garcom')">
+      <div class="painel-login-err" id="garcom-senha-err"></div>
+      <button id="garcom-senha-btn" class="painel-login-btn" onclick="verificarSenhaPainel('garcom')">Entrar</button>
+    </div>
   </div>
-  <div class="admin-body">
-    <!-- Abas -->
-    <div style="display:flex;gap:0.5rem;margin-bottom:1rem;border-bottom:1px solid rgba(201,168,76,0.15);padding-bottom:0.65rem;">
-      <button class="admin-tab active" id="garcom-tab-mesas" onclick="mudarAbaGarcom('mesas')">🗺️ Mesas</button>
-      <button class="admin-tab" id="garcom-tab-pedidos" onclick="mudarAbaGarcom('pedidos')">📋 Pedidos</button>
+  <div id="garcom-painel" style="display:none;flex-direction:column;height:100%;">
+    <div class="admin-header">
+      <span class="admin-title">🧙 Painel do Garçom</span>
+      <button class="cart-close" onclick="fecharGarcom()" aria-label="Fechar painel">✕</button>
     </div>
-    <!-- Aba Mesas -->
-    <div id="garcom-aba-mesas">
-      <div id="garcom-mesas-body"></div>
-    </div>
-    <!-- Aba Pedidos (Kanban) -->
-    <div id="garcom-aba-pedidos" style="display:none;">
-      <div id="garcom-body"></div>
+    <div class="admin-body">
+      <!-- Abas -->
+      <div style="display:flex;gap:0.5rem;margin-bottom:1rem;border-bottom:1px solid rgba(201,168,76,0.15);padding-bottom:0.65rem;">
+        <button class="admin-tab active" id="garcom-tab-mesas" onclick="mudarAbaGarcom('mesas')">🗺️ Mesas</button>
+        <button class="admin-tab" id="garcom-tab-pedidos" onclick="mudarAbaGarcom('pedidos')">📋 Pedidos</button>
+      </div>
+      <!-- Aba Mesas -->
+      <div id="garcom-aba-mesas">
+        <div id="garcom-mesas-body"></div>
+      </div>
+      <!-- Aba Pedidos (Kanban) -->
+      <div id="garcom-aba-pedidos" style="display:none;">
+        <div id="garcom-body"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -595,7 +618,7 @@
         <input class="cart-input" id="admin-senha-input" type="password"
           placeholder="Senha de gestão" style="width:100%;margin-bottom:0.75rem;"
           onkeydown="if(event.key==='Enter')verificarSenhaAdmin()">
-        <button class="btn-pedido" onclick="verificarSenhaAdmin()">Entrar</button>
+        <button class="btn-pedido btn-entrar-painel" onclick="verificarSenhaAdmin()">Entrar</button>
         <div class="admin-senha-err" id="admin-senha-err"></div>
       </div>
     </div>
@@ -684,6 +707,7 @@
 </div>
 
 <!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 <script src="js/config.js"></script>
 <script src="js/app.js"></script>
 </body>

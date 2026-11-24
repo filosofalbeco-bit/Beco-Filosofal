@@ -261,6 +261,15 @@
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 4px 20px rgba(201,168,76,0.2);
 }
+.btn-pix-cola {
+  width: 100%; padding: 0.65rem 1rem; margin-bottom: 0.5rem;
+  background: linear-gradient(135deg, rgba(201,168,76,0.18), rgba(201,168,76,0.28));
+  border: 1px solid rgba(201,168,76,0.4); border-radius: var(--radius);
+  color: var(--gold); font-family: var(--font-heading); font-size: 0.88rem;
+  cursor: pointer; letter-spacing: 0.04em; transition: background 0.2s;
+}
+.btn-pix-cola:hover { background: rgba(201,168,76,0.35); }
+.pix-key-mini { font-size: 0.72rem; color: var(--fg-muted); margin-bottom: 0.25rem; }
 .pix-key-label { font-size: 0.75rem; color: var(--fg-muted); margin-bottom: 0.35rem; font-family: var(--font-heading); letter-spacing: 0.08em; text-transform: uppercase; }
 .pix-key-val {
   background: rgba(255,255,255,0.05); border: 1px solid rgba(201,168,76,0.2);
@@ -269,8 +278,8 @@
 }
 .copy-btn { background: none; border: none; color: var(--gold-dark); cursor: pointer; font-size: 1rem; flex-shrink: 0; transition: color 0.2s; }
 .copy-btn:hover { color: var(--gold); }
-.copy-feedback { font-size: 0.72rem; color: var(--gold); height: 1rem; margin-top: 0.25rem; }
-.pix-total { font-family: var(--font-heading); font-size: 1.6rem; color: var(--gold); margin: 1rem 0 0.25rem; }
+.copy-feedback { font-size: 0.72rem; color: var(--gold); min-height: 1rem; margin-top: 0.25rem; margin-bottom: 0.25rem; }
+.pix-total { font-family: var(--font-heading); font-size: 1.6rem; color: var(--gold); margin: 0.75rem 0 0.25rem; }
 .pix-total-label { font-size: 0.78rem; color: var(--fg-muted); margin-bottom: 1.25rem; }
 .pix-steps {
   text-align: left; background: rgba(201,168,76,0.04);
@@ -413,6 +422,34 @@
 .admin-senha-title { font-family: var(--font-display); font-size: 1.2rem; color: var(--gold); margin-bottom: 0.5rem; }
 .admin-senha-sub { font-size: 0.82rem; color: var(--fg-muted); margin-bottom: 1.5rem; font-style: italic; font-family: var(--font-scroll); }
 .admin-senha-err { font-size: 0.78rem; color: #e06060; margin-top: 0.5rem; min-height: 1.2em; }
+
+/* Login screens para cozinha e garçom */
+.painel-login-screen {
+  display: flex; align-items: center; justify-content: center; height: 100%; padding: 2rem;
+}
+.painel-login-box { width: 100%; max-width: 320px; text-align: center; }
+.painel-login-emoji { font-size: 2.5rem; margin-bottom: 0.75rem; }
+.painel-login-title {
+  font-family: var(--font-display); font-size: 1.1rem; color: var(--gold);
+  margin-bottom: 1.5rem; letter-spacing: 0.05em;
+}
+.painel-login-input {
+  width: 100%; padding: 0.75rem 1rem; box-sizing: border-box;
+  background: rgba(201,168,76,0.07); border: 1px solid rgba(201,168,76,0.25);
+  border-radius: var(--radius); color: var(--fg); font-family: var(--font-heading);
+  font-size: 1rem; margin-bottom: 0.5rem; text-align: center; letter-spacing: 0.1em;
+  outline: none; transition: border-color 0.2s;
+}
+.painel-login-input:focus { border-color: var(--gold); }
+.painel-login-err { font-size: 0.75rem; color: #e06060; min-height: 1.2rem; margin-bottom: 0.5rem; }
+.painel-login-btn {
+  width: 100%; padding: 0.75rem;
+  background: linear-gradient(135deg, var(--gold-dark), var(--gold));
+  border: none; border-radius: var(--radius); color: var(--bg);
+  font-family: var(--font-heading); font-size: 0.9rem; cursor: pointer;
+  letter-spacing: 0.05em; transition: opacity 0.2s;
+}
+.painel-login-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* Botão encerrar conta na mesa */
 .btn-encerrar {

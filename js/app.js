@@ -251,9 +251,44 @@ document.querySelectorAll('a[href^="#"]').forEach(a => {
    ===================================================== */
 const cart = {}; // { id: { name, price, qty } }
 const PIX_CONFIG = {
-  chave: window.PIX_CHAVE || '11999999999',
-  nome:  window.PIX_NOME  || 'Beco FilosoFal Burguer'
+  chave:  window.PIX_CHAVE   || '11999999999',
+  nome:   window.PIX_NOME    || 'Beco FilosoFal Burguer',
+  cidade: window.PIX_CIDADE  || 'Barbacena'
 };
+
+// --- PIX EMV (Pix Copia e Cola) ---
+function crc16Ccitt(str) {
+  let crc = 0xFFFF;
+  for (let i = 0; i < str.length; i++) {
+    crc ^= str.charCodeAt(i) << 8;
+    for (let j = 0; j < 8; j++) {
+      crc = (crc & 0x8000) ? ((crc << 1) ^ 0x1021) : (crc << 1);
+    }
+  }
+  return (crc & 0xFFFF).toString(16).toUpperCase().padStart(4, '0');
+}
+
+function gerarPixPayload(chave, nome, cidade, valor, txid) {
+  const f    = (id, v) => id + String(v.length).padStart(2, '0') + v;
+  const lim  = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9 ]/g, ' ').trim();
+  const nome25   = lim(nome).substring(0, 25);
+  const cidade15 = lim(cidade).substring(0, 15);
+  const txid25   = (txid || 'NAO_INFORMADO').replace(/[^A-Za-z0-9]/g, '').substring(0, 25) || 'NAO_INFORMADO';
+  const merchantInfo = f('00', 'br.gov.bcb.pix') + f('01', chave);
+  const addData      = f('05', txid25);
+  const body =
+    f('00', '01') +
+    f('26', merchantInfo) +
+    f('52', '0000') +
+    f('53', '986') +
+    (valor > 0 ? f('54', valor.toFixed(2)) : '') +
+    f('58', 'BR') +
+    f('59', nome25) +
+    f('60', cidade15) +
+    f('62', addData) +
+    '6304';
+  return body + crc16Ccitt(body);
+}
 const WPP_NUM = window.WPP_NUM || '5531999999999';
 const ZONAS = [
   { prefix: '36200', nome: 'Centro e bairros próximos', taxa: 5.00 },
@@ -701,14 +736,27 @@ async function encerrarConta() {
 }
 
 function abrirPix(codigo, total) {
-  document.getElementById('pix-order-num').textContent    = codigo;
-  document.getElementById('pix-key-display').textContent  = PIX_CONFIG.chave;
-  document.getElementById('pix-total-val').textContent    = 'R$ ' + total.toFixed(2).replace('.',',');
-  document.getElementById('copy-feedback').textContent    = '';
-  desenharQR(codigo, total);
+  document.getElementById('pix-order-num').textContent   = codigo;
+  document.getElementById('pix-key-display').textContent = PIX_CONFIG.chave;
+  document.getElementById('pix-total-val').textContent   = 'R$ ' + total.toFixed(2).replace('.',',');
+  document.getElementById('copy-feedback').textContent   = '';
+
+  // Gerar EMV payload (Pix Copia e Cola real)
+  const txid   = codigo.replace(/[^A-Za-z0-9]/g, '').substring(0, 25);
+  const payload = gerarPixPayload(PIX_CONFIG.chave, PIX_CONFIG.nome, PIX_CONFIG.cidade, total, txid);
+  window._pixPayload = payload;
+
+  // QR Code real
+  const canvas = document.getElementById('pix-qr');
+  if (typeof QRCode !== 'undefined') {
+    QRCode.toCanvas(canvas, payload, { width: 200, margin: 1,
+      color: { dark: '#000000', light: '#ffffff' } }, err => {
+      if (err) console.warn('QR gen failed', err);
+    });
+  }
+
   document.getElementById('pix-modal').classList.add('open');
   document.body.style.overflow = 'hidden';
-  // guardar para o WPP
   window._pedidoCodigo = codigo;
   window._pedidoTotal  = total;
 }
@@ -718,48 +766,20 @@ function fecharPix() {
   document.body.style.overflow = '';
 }
 
-function desenharQR(codigo, total) {
-  const canvas = document.getElementById('pix-qr');
-  const ctx    = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
-  ctx.clearRect(0, 0, W, H);
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, W, H);
-  // padrão visual decorativo (não é QR real — demo only)
-  const seed = codigo.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
-  const cell = 10;
-  const cols = Math.floor(W / cell);
-  const rows = Math.floor(H / cell);
-  ctx.fillStyle = '#000000';
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      const v = (seed * (r * cols + c) * 2654435761) % 256;
-      if (v < 128) ctx.fillRect(c * cell, r * cell, cell, cell);
-    }
-  }
-  // cantos obrigatórios de QR code
-  [[0,0],[W-7*cell,0],[0,H-7*cell]].forEach(([x,y]) => {
-    ctx.fillStyle = '#000'; ctx.fillRect(x, y, 7*cell, 7*cell);
-    ctx.fillStyle = '#fff'; ctx.fillRect(x+cell, y+cell, 5*cell, 5*cell);
-    ctx.fillStyle = '#000'; ctx.fillRect(x+2*cell, y+2*cell, 3*cell, 3*cell);
-  });
-}
-
 function copiarChave() {
-  const chave = PIX_CONFIG.chave;
-  const fb    = document.getElementById('copy-feedback');
-  navigator.clipboard.writeText(chave).then(() => {
-    fb.textContent = '✓ Chave copiada!';
+  const payload = window._pixPayload || PIX_CONFIG.chave;
+  const fb = document.getElementById('copy-feedback');
+  const copiar = txt => {
+    navigator.clipboard.writeText(txt).catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+      document.body.removeChild(ta);
+    });
+    fb.textContent = '✓ Pix Copia e Cola copiado!';
     setTimeout(() => fb.textContent = '', 2500);
-  }).catch(() => {
-    // fallback
-    const ta = document.createElement('textarea');
-    ta.value = chave; ta.style.position = 'fixed'; ta.style.opacity = '0';
-    document.body.appendChild(ta); ta.select(); document.execCommand('copy');
-    document.body.removeChild(ta);
-    fb.textContent = '✓ Chave copiada!';
-    setTimeout(() => fb.textContent = '', 2500);
-  });
+  };
+  copiar(payload);
 }
 
 async function enviarWhatsApp() {
@@ -880,28 +900,6 @@ function criarDbRef(sb) {
     // Se em modo mesa, iniciar polling de status
     if (mesaAtiva) iniciarPollingStatus();
 
-    // Painel gestão — subscrever a atualizações de pedidos
-    if (painelAdminAtivo) {
-      dbRef.collection('mesas').onSnapshot(snap => {
-        renderizarPainelAdmin(snap.docs.map(d => d.data()));
-      });
-    }
-
-    // Painel cozinha standalone — polling a cada 5s
-    if (painelCozinhaAtivo) {
-      renderizarCozinhaStandalone();
-      setInterval(renderizarCozinhaStandalone, 5000);
-    }
-
-    // Painel garçom — polling a cada 5s
-    if (painelGarcomAtivo) {
-      renderizarMapaMesas();
-      setInterval(() => {
-        if (garcomAbaAtiva === 'mesas')   renderizarMapaMesas();
-        else                              renderizarGarcom();
-      }, 5000);
-    }
-
     // Se em modo mesa, subscrever para atualizar botão encerrar
     if (mesaAtiva) {
       dbRef.collection('mesas').where('mesa','==',mesaAtiva).onSnapshot(() => {
@@ -914,7 +912,88 @@ function criarDbRef(sb) {
 let painelAdminAtivo   = false;
 let painelCozinhaAtivo = false;
 let painelGarcomAtivo  = false;
-const ADMIN_SENHA = window.ADMIN_SENHA || 'filosofal2026';
+
+// --- SONS (Web Audio API) ---
+let _audioCtx = null;
+function initAudio() {
+  if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+function beep(freq = 880, dur = 200, vol = 0.3) {
+  try {
+    if (!_audioCtx) return;
+    const osc  = _audioCtx.createOscillator();
+    const gain = _audioCtx.createGain();
+    osc.connect(gain); gain.connect(_audioCtx.destination);
+    osc.frequency.value = freq; osc.type = 'sine';
+    gain.gain.setValueAtTime(vol, _audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, _audioCtx.currentTime + dur / 1000);
+    osc.start(_audioCtx.currentTime); osc.stop(_audioCtx.currentTime + dur / 1000);
+  } catch(e) {}
+}
+function beepNovoPedido() {
+  beep(880, 180, 0.4); setTimeout(() => beep(1100, 180, 0.4), 250);
+}
+function beepProntoEntregar() {
+  beep(1100, 180, 0.35); setTimeout(() => beep(880, 180, 0.35), 220); setTimeout(() => beep(1100, 300, 0.35), 440);
+}
+let _cozinhaPendentesCount = -1; // -1 = primeira carga, não emite beep
+let _garcomProntosCount    = -1;
+
+// --- AUTENTICAÇÃO PAINÉIS ---
+function salvarSessaoPainel(role, token) {
+  sessionStorage.setItem('bf_sess_role', role);
+  sessionStorage.setItem('bf_sess_token', token);
+}
+function verificarSessaoPainel(roleEsperado) {
+  const role  = sessionStorage.getItem('bf_sess_role');
+  const token = sessionStorage.getItem('bf_sess_token');
+  if (!token || role !== roleEsperado) return false;
+  try {
+    const [r, exp] = atob(token).split(':');
+    return r === roleEsperado && parseInt(exp) > Date.now();
+  } catch { return false; }
+}
+
+function abrirPainelRole(role) {
+  if (role === 'gestao') {
+    document.getElementById('admin-senha-screen').style.display = 'none';
+    document.getElementById('admin-painel').style.display = 'flex';
+    document.getElementById('admin-painel').style.flexDirection = 'column';
+    mudarAbaAdmin('dashboard');
+    atualizarDashboard();
+    if (dashInterval) clearInterval(dashInterval);
+    dashInterval = setInterval(atualizarDashboard, 10000);
+    if (dbRef) {
+      dbRef.collection('mesas').onSnapshot(snap => {
+        renderizarPainelAdmin(snap.docs.map(d => d.data()));
+      });
+    } else {
+      setTimeout(() => {
+        if (!dbRef) return;
+        dbRef.collection('mesas').onSnapshot(snap => {
+          renderizarPainelAdmin(snap.docs.map(d => d.data()));
+        });
+      }, 2000);
+    }
+  } else if (role === 'cozinha') {
+    document.getElementById('cozinha-senha-screen').style.display = 'none';
+    document.getElementById('cozinha-painel').style.display = 'flex';
+    document.getElementById('cozinha-painel').style.flexDirection = 'column';
+    _cozinhaPendentesCount = -1; // primeira carga não emite beep
+    renderizarCozinhaStandalone();
+    setInterval(renderizarCozinhaStandalone, 5000);
+  } else if (role === 'garcom') {
+    document.getElementById('garcom-senha-screen').style.display = 'none';
+    document.getElementById('garcom-painel').style.display = 'flex';
+    document.getElementById('garcom-painel').style.flexDirection = 'column';
+    _garcomProntosCount = -1; // primeira carga não emite beep
+    renderizarMapaMesas();
+    setInterval(() => {
+      if (garcomAbaAtiva === 'mesas')   renderizarMapaMesas();
+      else                              renderizarGarcom();
+    }, 5000);
+  }
+}
 
 // Detectar qual painel de serviço abrir
 (function detectarPaineis() {
@@ -924,44 +1003,78 @@ const ADMIN_SENHA = window.ADMIN_SENHA || 'filosofal2026';
     if (painel === 'gestao' || painel === 'admin') {
       painelAdminAtivo = true;
       document.getElementById('admin-overlay').classList.add('open');
+      if (verificarSessaoPainel('gestao')) { initAudio(); abrirPainelRole('gestao'); }
     } else if (painel === 'cozinha') {
       painelCozinhaAtivo = true;
       document.getElementById('cozinha-overlay').classList.add('open');
+      if (verificarSessaoPainel('cozinha')) { initAudio(); abrirPainelRole('cozinha'); }
     } else if (painel === 'garcom') {
       painelGarcomAtivo = true;
       document.getElementById('garcom-overlay').classList.add('open');
+      if (verificarSessaoPainel('garcom')) { initAudio(); abrirPainelRole('garcom'); }
     }
   } catch(e) {}
 })();
 
-function verificarSenhaAdmin() {
-  const input = document.getElementById('admin-senha-input').value;
+async function _chamarAuthPainel(role, senha) {
+  const url = `${SUPABASE_URL}/functions/v1/auth-painel`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+    body: JSON.stringify({ role, senha })
+  });
+  return res.json();
+}
+
+async function verificarSenhaAdmin() {
+  const input = document.getElementById('admin-senha-input');
   const errEl = document.getElementById('admin-senha-err');
-  if (input === ADMIN_SENHA) {
-    document.getElementById('admin-senha-screen').style.display = 'none';
-    document.getElementById('admin-painel').style.display = 'flex';
-    document.getElementById('admin-painel').style.flexDirection = 'column';
-    mudarAbaAdmin('dashboard');
-    atualizarDashboard();
-    if (typeof dashInterval !== 'undefined' && dashInterval) clearInterval(dashInterval);
-    dashInterval = setInterval(atualizarDashboard, 10000);
-    // Iniciar listener
-    if (dbRef) {
-      dbRef.collection('mesas').onSnapshot(snap => {
-        renderizarPainelAdmin(snap.docs.map(d => d.data()));
-      });
+  const btn   = document.querySelector('#admin-senha-screen .btn-entrar-painel');
+  const senha = input?.value?.trim();
+  if (!senha) return;
+  if (btn) { btn.disabled = true; btn.textContent = '...'; }
+  if (errEl) errEl.textContent = '';
+  try {
+    const data = await _chamarAuthPainel('gestao', senha);
+    if (data.ok) {
+      salvarSessaoPainel('gestao', data.token);
+      initAudio();
+      abrirPainelRole('gestao');
     } else {
-      // tentar de novo após DB inicializar
-      setTimeout(async () => {
-        if (!dbRef) return;
-        dbRef.collection('mesas').onSnapshot(snap => {
-          renderizarPainelAdmin(snap.docs.map(d => d.data()));
-        });
-      }, 2000);
+      if (errEl) errEl.textContent = '✕ Senha incorreta. Tente novamente.';
+      setTimeout(() => { if (errEl) errEl.textContent = ''; }, 2500);
     }
-  } else {
-    errEl.textContent = '✕ Senha incorreta. Tente novamente.';
-    setTimeout(() => errEl.textContent = '', 2500);
+  } catch(e) {
+    if (errEl) errEl.textContent = '✕ Erro de conexão. Tente novamente.';
+    setTimeout(() => { if (errEl) errEl.textContent = ''; }, 2500);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Entrar'; }
+  }
+}
+
+async function verificarSenhaPainel(role) {
+  const input = document.getElementById(`${role}-senha-input`);
+  const errEl = document.getElementById(`${role}-senha-err`);
+  const btn   = document.getElementById(`${role}-senha-btn`);
+  const senha = input?.value?.trim();
+  if (!senha) return;
+  if (btn) { btn.disabled = true; btn.textContent = '...'; }
+  if (errEl) errEl.textContent = '';
+  try {
+    const data = await _chamarAuthPainel(role, senha);
+    if (data.ok) {
+      salvarSessaoPainel(role, data.token);
+      initAudio();
+      abrirPainelRole(role);
+    } else {
+      if (errEl) errEl.textContent = '✕ Senha incorreta. Tente novamente.';
+      setTimeout(() => { if (errEl) errEl.textContent = ''; }, 2500);
+    }
+  } catch(e) {
+    if (errEl) errEl.textContent = '✕ Erro de conexão. Tente novamente.';
+    setTimeout(() => { if (errEl) errEl.textContent = ''; }, 2500);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Entrar'; }
   }
 }
 
@@ -1156,6 +1269,10 @@ async function renderizarGarcom() {
 
     const prontos   = pedidos.filter(p => p.status === 'pronto');
     const emPreparo = pedidos.filter(p => p.status === 'pendente' || p.status === 'preparando');
+
+    // Beep quando item ficar pronto para entregar
+    if (_garcomProntosCount >= 0 && prontos.length > _garcomProntosCount) beepProntoEntregar();
+    _garcomProntosCount = prontos.length;
 
     body.innerHTML = `
       <div class="kanban-board">
@@ -1441,6 +1558,10 @@ async function renderizarCozinhaStandalone() {
     const pendentes  = pedidos.filter(p => p.status === 'pendente');
     const preparando = pedidos.filter(p => p.status === 'preparando');
     const prontos    = pedidos.filter(p => p.status === 'pronto');
+
+    // Beep quando chegar novo pedido pendente
+    if (_cozinhaPendentesCount >= 0 && pendentes.length > _cozinhaPendentesCount) beepNovoPedido();
+    _cozinhaPendentesCount = pendentes.length;
 
     body.innerHTML = mkKanbanBoard(
       pendentes, preparando, prontos,
