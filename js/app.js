@@ -1306,6 +1306,7 @@ async function renderizarMapaMesas() {
     const mesaIcon  = (m) => isMesaNum(m) ? '🪄' : m === 'ENTREGA' ? '🚴' : '🏃';
 
     const cards = Object.entries(porMesa)
+      .filter(([_, peds]) => peds.some(p => !['entregue','cancelado'].includes(p.status)))
       .sort((a,b) => {
         const aPronto = a[1].some(p => p.status === 'pronto');
         const bPronto = b[1].some(p => p.status === 'pronto');
@@ -1314,16 +1315,10 @@ async function renderizarMapaMesas() {
       })
       .map(([mesa, peds]) => {
         const total = peds.reduce((s, p) => s + (p.total||0), 0);
-        const ativas = peds.filter(p => p.status !== 'entregue');
+        const ativas = peds.filter(p => !['entregue','cancelado'].includes(p.status));
         const temPronto = ativas.some(p => p.status === 'pronto');
         const temPrep   = ativas.some(p => ['preparando','pendente'].includes(p.status));
-        const statusTxt = ativas.length === 0
-          ? '✓ Conta a fechar'
-          : temPronto
-            ? '🔔 Pronto p/ entregar'
-            : temPrep
-              ? '🔥 Em preparo'
-              : '';
+        const statusTxt = temPronto ? '🔔 Pronto p/ entregar' : temPrep ? '🔥 Em preparo' : '';
         const cls = temPronto ? 'mc-pronto' : temPrep ? 'mc-preparo' : '';
         return `
           <div class="mesa-card ${cls}">
@@ -1334,6 +1329,10 @@ async function renderizarMapaMesas() {
           </div>`;
       });
 
+    if (cards.length === 0) {
+      body.innerHTML = btnNovo + '<div class="admin-empty">Nenhuma mesa ativa.</div>';
+      return;
+    }
     body.innerHTML = btnNovo + `<div class="mesas-grid">${cards.join('')}</div>`;
   } catch(e) {
     body.innerHTML = '<div class="admin-empty">Erro ao carregar mesas.</div>';
