@@ -1594,6 +1594,98 @@ async function concluirRetiradaCaixaGestao(id, btn) {
   }
 }
 
+// ── Garçom na Gestão ─────────────────────────────────────────────────────────
+async function renderizarGarcomGestao() {
+  const body = document.getElementById('garcom-gestao-body');
+  if (!body) return;
+  if (!supabase) { body.innerHTML = '<div class="admin-empty">⏳ Conectando...</div>'; return; }
+  try {
+    const { data } = await supabase.from('mesas').select('*')
+      .in('status', ['pendente', 'preparando', 'pronto'])
+      .order('ts', { ascending: true });
+    const pedidos = data || [];
+    const prontos   = pedidos.filter(p => p.status === 'pronto');
+    const emPreparo = pedidos.filter(p => p.status === 'pendente' || p.status === 'preparando');
+    body.innerHTML = `
+      <div class="kanban-board">
+        <div class="kanban-col kanban-col-preparo">
+          <div class="kanban-col-header">⏳ Em Preparo <span class="kh-count">${emPreparo.length}</span></div>
+          <div class="kanban-col-body">
+            ${emPreparo.length === 0 ? '<div class="kanban-empty">Nenhum</div>'
+              : emPreparo.map(p => mkKanbanCard(p, `<div class="kanban-card-info">${p.status === 'preparando' ? '🔥 Preparando' : '⏳ Aguardando cozinha'}</div>`)).join('')}
+          </div>
+        </div>
+        <div class="kanban-col kanban-col-entregar">
+          <div class="kanban-col-header">🔔 A Entregar <span class="kh-count">${prontos.length}</span></div>
+          <div class="kanban-col-body">
+            ${prontos.length === 0 ? '<div class="kanban-empty">Nenhum</div>'
+              : prontos.map(p => mkKanbanCard(p, `<button class="btn-kanban btn-entregar-g" onclick="marcarEntregueGarcomGestao('${p.id}', this)">✓ Entregar</button>`)).join('')}
+          </div>
+        </div>
+      </div>`;
+  } catch(e) {
+    body.innerHTML = '<div class="admin-empty">Erro ao carregar.</div>';
+    console.warn('renderizarGarcomGestao failed', e);
+  }
+}
+
+async function marcarEntregueGarcomGestao(id, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = '...'; }
+  try {
+    await supabase.from('mesas').update({ status: 'entregue' }).eq('id', id);
+    renderizarGarcomGestao();
+  } catch(e) {
+    console.warn('Entregar failed', e);
+    if (btn) { btn.disabled = false; btn.textContent = '✓ Entregar'; }
+  }
+}
+
+// ── Motoboy na Gestão ─────────────────────────────────────────────────────────
+async function renderizarMotoboyGestao() {
+  const body = document.getElementById('motoboy-gestao-body');
+  if (!body) return;
+  if (!supabase) { body.innerHTML = '<div class="admin-empty">⏳ Conectando...</div>'; return; }
+  try {
+    const { data } = await supabase.from('mesas').select('*')
+      .eq('status', 'pronto')
+      .eq('mesa', 'ENTREGA')
+      .order('ts', { ascending: true });
+    const pedidos = data || [];
+    const fmtHora = ts => new Date(ts).toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+    const cards = pedidos.map(p => `
+      <div class="caixa-card caixa-card-entrega">
+        <div class="caixa-card-header">
+          <span class="caixa-card-id">#${p.id} · ${fmtHora(p.ts)}</span>
+          <span class="caixa-card-mesa">🚴 Entrega</span>
+        </div>
+        <div class="caixa-card-itens">${(p.itens||[]).map(i => `${i.qty}× ${i.name}`).join(' · ')}</div>
+        ${p.obs ? `<div class="caixa-card-obs">📝 ${p.obs}</div>` : ''}
+        <div class="caixa-card-total">R$ ${(p.total||0).toFixed(2).replace('.',',')}</div>
+        <div class="caixa-card-acoes">
+          <button class="motoboy-btn-entregar" onclick="confirmarEntregaMotoboyGestao('${p.id}', this)">✓ Entregue ao cliente</button>
+        </div>
+      </div>`).join('');
+    body.innerHTML = `
+      <div class="caixa-secao-label">PRONTOS PARA ENTREGA (${pedidos.length})</div>
+      ${pedidos.length === 0 ? '<div class="admin-empty">Nenhuma entrega pendente</div>' : cards}`;
+  } catch(e) {
+    body.innerHTML = '<div class="admin-empty">Erro ao carregar.</div>';
+    console.warn('renderizarMotoboyGestao failed', e);
+  }
+}
+
+async function confirmarEntregaMotoboyGestao(id, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = '...'; }
+  try {
+    await supabase.from('mesas').update({ status: 'entregue' }).eq('id', id);
+    mostrarToast('✓ Entrega confirmada!');
+    renderizarMotoboyGestao();
+  } catch(e) {
+    mostrarToast('❌ Erro: ' + (e?.message || ''));
+    if (btn) { btn.disabled = false; btn.textContent = '✓ Entregue ao cliente'; }
+  }
+}
+
 // ── Novo Pedido pelo Garçom ──────────────────────────────────────────────────
 let cartGarcom = {};
 
@@ -2271,18 +2363,20 @@ function mostrarAjudaAdmin() {
 }
 
 function mudarAbaAdmin(aba) {
-  ['dashboard','pedidos','cozinha','links','cardapio','caixa-gestao','relatorios'].forEach(a => {
+  ['dashboard','pedidos','cozinha','links','cardapio','caixa-gestao','garcom-gestao','motoboy-gestao','relatorios'].forEach(a => {
     const el  = document.getElementById(`admin-aba-${a}`);
     const tab = document.getElementById(`tab-${a}`);
     if (el)  el.style.display = a === aba ? 'block' : 'none';
     if (tab) tab.classList.toggle('active', a === aba);
   });
-  if (aba === 'links')        renderizarLinksAdmin();
-  if (aba === 'cozinha')      renderizarCozinha();
-  if (aba === 'dashboard')    atualizarDashboard();
-  if (aba === 'cardapio')     renderizarCardapioAdmin();
-  if (aba === 'relatorios')   renderizarRelatorios();
-  if (aba === 'caixa-gestao') renderizarCaixaGestao();
+  if (aba === 'links')          renderizarLinksAdmin();
+  if (aba === 'cozinha')        renderizarCozinha();
+  if (aba === 'dashboard')      atualizarDashboard();
+  if (aba === 'cardapio')       renderizarCardapioAdmin();
+  if (aba === 'relatorios')     renderizarRelatorios();
+  if (aba === 'caixa-gestao')   renderizarCaixaGestao();
+  if (aba === 'garcom-gestao')  renderizarGarcomGestao();
+  if (aba === 'motoboy-gestao') renderizarMotoboyGestao();
 }
 
 async function renderizarCozinha() {
