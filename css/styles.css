@@ -1237,6 +1237,25 @@ footer {
   color: var(--gold);
 }
 
+/* Destino do item do cardápio (admin) */
+.btn-dest {
+  padding: 0.3rem 0.6rem;
+  border: 1px solid rgba(201,168,76,0.18);
+  border-radius: calc(var(--radius) - 2px);
+  background: none;
+  color: var(--fg-muted);
+  font-family: var(--font-heading);
+  font-size: 0.65rem;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-dest.dest-ativo {
+  background: rgba(201,168,76,0.18);
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
 /* =====================================================
    KANBAN — Cozinha / Garçom
    ===================================================== */

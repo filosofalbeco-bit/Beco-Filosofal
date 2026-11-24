@@ -523,30 +523,45 @@ async function confirmarPedido() {
 }
 
 async function confirmarPedidoMesa(total) {
-  const codigo = gerarCodigoPedido();
   const obs = (document.getElementById('obs-input') || {}).value || '';
+  const ts  = Date.now();
 
-  // Montar objeto do pedido
-  const pedido = {
-    id: codigo,
-    mesa: mesaAtiva,
-    itens: Object.values(cart).map(i => ({ name: i.name, qty: i.qty, price: i.price })),
-    total,
-    obs,
-    status: 'pendente',
-    ts: Date.now()
-  };
+  // Agrupar itens por destino (padrão: cozinha)
+  const itensPorDestino = {};
+  Object.values(cart).forEach(i => {
+    const dest = CARDAPIO_DINAMICO[i.id]?.destino || 'cozinha';
+    if (!itensPorDestino[dest]) itensPorDestino[dest] = [];
+    itensPorDestino[dest].push({ name: i.name, qty: i.qty, price: i.price });
+  });
 
-  // Salvar no Supabase
   if (!dbRef) {
     mostrarToast('⚠️ Banco não conectado. Tente novamente em instantes.');
     return;
   }
-  try {
-    await dbRef.collection('mesas').doc(codigo).set(pedido);
-  } catch(e) {
-    console.error('DB save failed', e);
-    mostrarToast('❌ Erro ao enviar pedido: ' + (e?.message || e?.code || 'tente novamente'));
+
+  const destinos = Object.keys(itensPorDestino);
+  let erros = 0;
+  for (let offset = 0; offset < destinos.length; offset++) {
+    const dest  = destinos[offset];
+    const itens = itensPorDestino[dest];
+    const subtotal = itens.reduce((s, i) => s + i.price * i.qty, 0);
+    const codigo = gerarCodigoPedido();
+    const pedido = {
+      id: codigo, mesa: mesaAtiva, itens, total: subtotal, obs,
+      status: dest === 'garcom' ? 'pronto' : 'pendente',
+      destino: dest,
+      ts: ts + offset
+    };
+    try {
+      await dbRef.collection('mesas').doc(codigo).set(pedido);
+    } catch(e) {
+      console.error('DB save failed', dest, e);
+      erros++;
+    }
+  }
+
+  if (erros > 0) {
+    mostrarToast('❌ Erro ao enviar pedido. Tente novamente.');
     return;
   }
 
@@ -556,14 +571,17 @@ async function confirmarPedidoMesa(total) {
   fecharCarrinho();
   atualizarCarrinho();
 
-  // Garantir que o botão de status está visível
   const statusBtn = document.getElementById('status-btn');
   if (statusBtn) statusBtn.style.display = 'flex';
 
-  // Toast de confirmação
-  mostrarToast(`✓ Pedido ${codigo} enviado para a cozinha!`);
+  const temCozinha = !!itensPorDestino.cozinha;
+  const temGarcom  = !!itensPorDestino.garcom;
+  const msg = temCozinha && temGarcom
+    ? '✓ Pedido enviado para a cozinha e garçom!'
+    : temCozinha ? '✓ Pedido enviado para a cozinha!'
+    : '✓ Pedido enviado para o garçom!';
+  mostrarToast(msg);
 
-  // Atualizar status do botão encerrar e badge
   setTimeout(() => {
     atualizarStatusEncerrar();
     renderizarStatusPainel();
@@ -815,6 +833,7 @@ function criarDbRef(sb) {
     const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
     supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     dbRef = criarDbRef(supabase);
+    carregarCardapioDB();
 
     // Se em modo mesa, iniciar polling de status
     if (mesaAtiva) iniciarPollingStatus();
@@ -1098,18 +1117,18 @@ async function renderizarGarcom() {
 
     body.innerHTML = `
       <div class="kanban-board">
-        <div class="kanban-col kanban-col-entregar">
-          <div class="kanban-col-header">🔔 A Entregar <span class="kh-count">${prontos.length}</span></div>
-          <div class="kanban-col-body">
-            ${prontos.length === 0 ? '<div class="kanban-empty">Nenhum</div>'
-              : prontos.map(p => mkKanbanCard(p, `<button class="btn-kanban btn-entregar-g" onclick="marcarEntregueGarcom('${p.id}', this)">✓ Entregar</button>`)).join('')}
-          </div>
-        </div>
         <div class="kanban-col kanban-col-preparo">
           <div class="kanban-col-header">⏳ Em Preparo <span class="kh-count">${emPreparo.length}</span></div>
           <div class="kanban-col-body">
             ${emPreparo.length === 0 ? '<div class="kanban-empty">Nenhum</div>'
               : emPreparo.map(p => mkKanbanCard(p, `<div class="kanban-card-info">${p.status === 'preparando' ? '🔥 Preparando' : '⏳ Aguardando cozinha'}</div>`)).join('')}
+          </div>
+        </div>
+        <div class="kanban-col kanban-col-entregar">
+          <div class="kanban-col-header">🔔 A Entregar <span class="kh-count">${prontos.length}</span></div>
+          <div class="kanban-col-body">
+            ${prontos.length === 0 ? '<div class="kanban-empty">Nenhum</div>'
+              : prontos.map(p => mkKanbanCard(p, `<button class="btn-kanban btn-entregar-g" onclick="marcarEntregueGarcom('${p.id}', this)">✓ Entregar</button>`)).join('')}
           </div>
         </div>
       </div>`;
@@ -1374,6 +1393,7 @@ async function renderizarCozinhaStandalone() {
   try {
     const { data } = await supabase.from('mesas').select('*')
       .in('status', ['pendente', 'preparando', 'pronto'])
+      .eq('destino', 'cozinha')
       .order('ts', { ascending: true });
     const pedidos = data || [];
     const pendentes  = pedidos.filter(p => p.status === 'pendente');
@@ -1457,7 +1477,7 @@ async function atualizarDashboard() {
 let dashInterval = null;
 
 function mudarAbaAdmin(aba) {
-  ['dashboard','pedidos','cozinha','links'].forEach(a => {
+  ['dashboard','pedidos','cozinha','links','cardapio'].forEach(a => {
     const el  = document.getElementById(`admin-aba-${a}`);
     const tab = document.getElementById(`tab-${a}`);
     if (el)  el.style.display = a === aba ? 'block' : 'none';
@@ -1466,6 +1486,7 @@ function mudarAbaAdmin(aba) {
   if (aba === 'links')     renderizarLinksAdmin();
   if (aba === 'cozinha')   renderizarCozinha();
   if (aba === 'dashboard') atualizarDashboard();
+  if (aba === 'cardapio')  renderizarCardapioAdmin();
 }
 
 async function renderizarCozinha() {
@@ -1479,6 +1500,7 @@ async function renderizarCozinha() {
   try {
     const { data } = await supabase.from('mesas').select('*')
       .in('status', ['pendente', 'preparando', 'pronto'])
+      .eq('destino', 'cozinha')
       .order('ts', { ascending: true });
     const pedidos = data || [];
     const emptyEl = document.getElementById('cozinha-empty');
@@ -1722,6 +1744,18 @@ function iniciarPollingStatus() {
 /* =====================================================
    CARDÁPIO — Dados e renderização
    ===================================================== */
+let CARDAPIO_DINAMICO = {}; // id → { destino } carregado do Supabase
+
+async function carregarCardapioDB() {
+  if (!supabase) return;
+  try {
+    const { data } = await supabase.from('cardapio').select('id, destino').eq('ativo', true);
+    if (data) data.forEach(item => { CARDAPIO_DINAMICO[item.id] = { destino: item.destino }; });
+  } catch(e) {
+    console.warn('carregarCardapioDB failed', e);
+  }
+}
+
 const CARDAPIO = {
   burgers: [
     { id: 'bg-sonserina',  name: 'X-Tudo Sonserina',   price: 32.90, desc: 'Blend 180g, queijo defumado, maionese verde, cebola roxa e alface.' },
@@ -1776,3 +1810,63 @@ function renderizarCardapio() {
 }
 
 renderizarCardapio();
+carregarCardapioDB();
+
+// --- CARDÁPIO ADMIN ---
+const CATEG_LABELS = { burgers: '🍔 Burgers', acomp: '🍟 Acompanhamentos', bebidas: '🥤 Bebidas', sobremesas: '🍫 Sobremesas' };
+
+async function renderizarCardapioAdmin() {
+  const body = document.getElementById('cardapio-admin-body');
+  if (!body) return;
+  body.innerHTML = '<div style="color:var(--fg-muted);font-size:0.8rem;padding:1rem 0;">Carregando...</div>';
+  if (!supabase) { body.innerHTML = '<div class="admin-empty">⏳ Sem conexão com o banco.</div>'; return; }
+  try {
+    const { data } = await supabase.from('cardapio').select('*').order('categoria').order('ordem');
+    if (!data || data.length === 0) { body.innerHTML = '<div class="admin-empty">Cardápio vazio.</div>'; return; }
+
+    const porCat = {};
+    data.forEach(item => {
+      if (!porCat[item.categoria]) porCat[item.categoria] = [];
+      porCat[item.categoria].push(item);
+    });
+
+    body.innerHTML = Object.entries(porCat).map(([cat, items]) => `
+      <div style="margin-bottom:1.5rem;">
+        <div style="font-family:var(--font-heading);font-size:0.78rem;color:var(--gold-dark);margin-bottom:0.75rem;border-bottom:1px solid rgba(201,168,76,0.15);padding-bottom:0.4rem;">${CATEG_LABELS[cat] || cat}</div>
+        ${items.map(item => `
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid rgba(201,168,76,0.06);">
+            <div>
+              <div style="font-size:0.82rem;color:var(--fg);">${item.nome}</div>
+              <div style="font-size:0.68rem;color:var(--fg-muted);">R$ ${item.preco.toFixed(2).replace('.',',')}</div>
+            </div>
+            <div style="display:flex;gap:0.3rem;flex-shrink:0;">
+              <button onclick="alterarDestino('${item.id}','cozinha')" id="dest-coz-${item.id}"
+                class="btn-dest${item.destino === 'cozinha' ? ' dest-ativo' : ''}">🔥 Cozinha</button>
+              <button onclick="alterarDestino('${item.id}','garcom')" id="dest-gar-${item.id}"
+                class="btn-dest${item.destino === 'garcom' ? ' dest-ativo' : ''}">🧙 Garçom</button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `).join('');
+  } catch(e) {
+    body.innerHTML = '<div class="admin-empty">Erro ao carregar cardápio.</div>';
+    console.warn('renderizarCardapioAdmin failed', e);
+  }
+}
+
+async function alterarDestino(itemId, destino) {
+  try {
+    const { error } = await supabase.from('cardapio').update({ destino }).eq('id', itemId);
+    if (error) throw error;
+    if (CARDAPIO_DINAMICO[itemId]) CARDAPIO_DINAMICO[itemId].destino = destino;
+    const btnCoz = document.getElementById(`dest-coz-${itemId}`);
+    const btnGar = document.getElementById(`dest-gar-${itemId}`);
+    if (btnCoz) btnCoz.classList.toggle('dest-ativo', destino === 'cozinha');
+    if (btnGar) btnGar.classList.toggle('dest-ativo', destino === 'garcom');
+    mostrarToast('✓ Destino atualizado');
+  } catch(e) {
+    mostrarToast('❌ Erro ao atualizar destino');
+    console.warn('alterarDestino failed', e);
+  }
+}
