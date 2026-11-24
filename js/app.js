@@ -2214,7 +2214,7 @@ async function carregarCardapioDB() {
     const { data } = await supabase.from('cardapio').select('*').order('categoria').order('ordem');
     if (data) {
       data.forEach(item => {
-        CARDAPIO_DINAMICO[item.id] = { destino: item.destino, ativo: item.ativo !== false };
+        CARDAPIO_DINAMICO[item.id] = { destino: item.destino, ativo: item.ativo !== false, nome: item.nome, preco: item.preco, descricao: item.descricao };
       });
       atualizarCardapioDom(data);
     }
